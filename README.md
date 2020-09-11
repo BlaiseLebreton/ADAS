@@ -1,2 +1,3 @@
 # ADAS
-Projet ADAS MT4 ISTY 2019-2020
+Projet de véhicule autonome
+MT4 ISTY 2019-2020
