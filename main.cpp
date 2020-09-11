@@ -374,7 +374,7 @@ int main(int argc, char** argv)
   			rectangle(slid, left_slid[nw].rect, Scalar(0, 255, 0), THICK);
 
   			// Affichage des points de ligne detecte
-  			circle(warp, left_slid[nw].lane, THICK, Scalar(255, 255, 255), CV_FILLED, 8, 0);
+  			circle(warp, left_slid[nw].lane, THICK, Scalar(255, 255, 255), cv::FILLED, 8, 0);
       }
       else{
   			// Affichage des fenetres
@@ -387,7 +387,7 @@ int main(int argc, char** argv)
 			  rectangle(slid, rigt_slid[nw].rect, Scalar(255, 0, 0), THICK);
 
   			// Affichage des points de ligne detecte
-			  circle(warp, rigt_slid[nw].lane, THICK, Scalar(255, 255, 255), CV_FILLED, 8, 0);
+			  circle(warp, rigt_slid[nw].lane, THICK, Scalar(255, 255, 255), cv::FILLED, 8, 0);
       }
       else{
   			// Affichage des fenetres
@@ -401,7 +401,7 @@ int main(int argc, char** argv)
         center[nc].y = (float)(rigt_slid[nw].lane.y + left_slid[nw].lane.y) / 2;
 
   			// Affichage des points de centre de lignes
-  		  // circle(warp, Point(center[nc].x, center[nc].y), 2, Scalar(0, 0, 255), CV_FILLED, 8, 0);
+  		  // circle(warp, Point(center[nc].x, center[nc].y), 2, Scalar(0, 0, 255), cv::FILLED, 8, 0);
 
         nc++;
       }
@@ -432,7 +432,7 @@ int main(int argc, char** argv)
   		}
       Mat curve(curvePoints, true);
       curve.convertTo(curve, CV_32S); //adapt type for polylines
-      polylines(warp, curve, false, Scalar(255, 255, 255), 1, CV_AA);
+      polylines(warp, curve, false, Scalar(255, 255, 255), 1, LINE_AA);
     }
 
 
@@ -542,19 +542,19 @@ void LineAlignement(int event, int x, int y, int flags, void* userdata)
 // Callback pour calcul de la region traitee
 void RegionOfInterest(int event, int x, int y, int flags, void* userdata)
 {
-	if (event == CV_EVENT_LBUTTONDOWN && !drag){
+	if (event == cv::EVENT_LBUTTONDOWN && !drag){
 		/* left button clicked. ROI selection begins */
 		point1 = Point(x, y);
 		drag = 1;
 	}
 
-	if (event == CV_EVENT_MOUSEMOVE && drag){
+	if (event == cv::EVENT_MOUSEMOVE && drag){
 		/* mouse dragged. ROI being selected */
 		point2 = Point(x, y);
 		//rectangle(img1, point1, point2, CV_RGB(255, 0, 0), 3, 8, 0);
 	}
 
-	if (event == CV_EVENT_LBUTTONUP && drag){
+	if (event == cv::EVENT_LBUTTONUP && drag){
     point2 = Point(x, y);
 		if (x - point1.x > 0 && y - point1.y > 0)
 			myROI = Rect(point1.x, point1.y, x - point1.x, y - point1.y);
@@ -574,7 +574,7 @@ void RegionOfInterest(int event, int x, int y, int flags, void* userdata)
 		drag = 0;
 	}
 
-	if (event == CV_EVENT_LBUTTONUP)
+	if (event == cv::EVENT_LBUTTONUP)
 	{
 		/* ROI selected */
 		select_flag = 1;
