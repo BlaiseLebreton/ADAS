@@ -95,14 +95,14 @@ int main(int argc, char** argv)
 	//--- Initialisation de la camera et lecture d'une frame
 	// VideoCapture cap("/root/ADAS/video.mp4");
   VideoCapture cap;
-	int deviceID = 0;
-	int apiID = cv::CAP_ANY;
 	if (argc == 1) {
-		cap.open(deviceID + apiID);
-		if (!cap.isOpened()) {
-			cerr << "ERROR! Unable to open camera\n";
-			return -1;
-		}
+    int apiID = CAP_ANY;
+    for (int deviceID = 0; deviceID < 10; deviceID++) {
+      cap.open(deviceID + apiID);
+      if (cap.isOpened()) {
+        break;
+      }
+    }
 		//Definition de la resolution
 		cap.set(CAP_PROP_FRAME_WIDTH,  320);
 		cap.set(CAP_PROP_FRAME_HEIGHT, 240);
