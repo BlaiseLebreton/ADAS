@@ -17,7 +17,7 @@ void polyfit(const Mat& src_x, const Mat& src_y, Mat& dst, int order);
 
 #define THICK 1
 
-/* Warping */
+// Warping
 int i = 0; // indice du point de warping
 int warp_factor = 1; // facteur d'agrandissement en y
 vector<Point2f> pts_src; // point sur l'image raw pour warping
@@ -78,13 +78,9 @@ int main(int argc, char** argv)
 
 	// Sliding windows
 	Mat l_roi;
-	int l_sumxi;
-	int l_sumi;
-	int l_n;
+	int l_sumxi,l_sumi,l_n;
 	Mat r_roi;
-	int r_sumxi;
-	int r_sumi;
-	int r_n;
+	int r_sumxi,r_sumi,r_n;
 
 	// Loops
 	int c, nw, r;
@@ -93,7 +89,6 @@ int main(int argc, char** argv)
 	double start,stop, dt;
 
 	//--- Initialisation de la camera et lecture d'une frame
-	// VideoCapture cap("/root/ADAS/video.mp4");
   VideoCapture cap;
 	if (argc == 1) {
     int apiID = CAP_ANY;
@@ -112,13 +107,11 @@ int main(int argc, char** argv)
 		raw = imread(argv[1], IMREAD_COLOR);
 	}
 
-
 	// Calculate Homography
 	pts_src.push_back(Point2f(332, 859));
 	pts_src.push_back(Point2f(607, 702));
 	pts_src.push_back(Point2f(934, 874));
 	pts_src.push_back(Point2f(727, 684));
-
 
   // Perspective transformee : Lignes deviennent verticales
 	pts_dst.push_back(Point2f(pts_src.at(1).x, 0));
@@ -152,8 +145,7 @@ int main(int argc, char** argv)
 
 	// Debut du traitement temps reel
 	cout << "Debut de capture" << endl;
-	for(;;)
-	{
+	for(;;)	{
 
     //Recuperation d'une frame
 		cap >> raw;
@@ -172,18 +164,14 @@ int main(int argc, char** argv)
     start = getTickCount();
 
 		// TRANSFORMATION DE L'IMAGE
-    // warp = raw;
     warpPerspective(raw, warp, h, Size(raw.cols, warp_factor * raw.rows));
-		// warpback = Mat(warp.cols, warp.rows, CV_8UC3, Scalar(0,0,0));
 		line(raw,  Point(pts_src.at(0)), Point(pts_src.at(1)), Scalar(255,0,0));
 		line(raw,  Point(pts_src.at(2)), Point(pts_src.at(3)), Scalar(255,0,0));
 		line(warp, Point(pts_dst.at(0)), Point(pts_dst.at(1)), Scalar(255,0,0));
 		line(warp, Point(pts_dst.at(2)), Point(pts_dst.at(3)), Scalar(255,0,0));
 
-
 		// DEFINITION DE LA ZONE DE TRAITEMENT
 		crop = warp(myROI);
-
 
 		// ALGORITHME DU FILTRE DE SOBEL
 		// Reduction bruit
@@ -202,32 +190,6 @@ int main(int argc, char** argv)
 
 		// Filtre de seuil (tout les pixels < threshold passent a zero)
 		threshold(sobel, sobel, threshold_sobel, 255, 3);
-
-
-		// HISTOGRAM COMPUTATION (Utile ?)
-//		l_max = 0;
-//		r_max = 0;
-//		xrigt = 3*sobel.cols/4;
-//		xleft = sobel.cols/4;
-//		for (int c = 0; c < sobel.cols; c++) {
-//			sum = 0;
-//			for (int r = 0; r < sobel.rows; r++){
-//				sum += (int)sobel.at<uchar>(r, c);
-//			}
-//			if (c < sobel.cols / 2) {
-//				if (sum > l_max) {
-//					l_max = sum;
-//					xleft = c;
-//				}
-//			}
-//			else {
-//				if (sum > r_max) {
-//					r_max = sum;
-//					xrigt = c;
-//				}
-//			}
-//		}
-
 
 		// ALGORITHME DES FENETRES GLISSANTES
 		//conversion en couleur pour representation des fenetres
@@ -258,15 +220,11 @@ int main(int argc, char** argv)
 
 			// Partie gauche de l'image
 			l_roi = sobel(left_slid[nw].rect);
-			l_sumxi = 0;
-			l_sumi = 0;
-			l_n = 0;
+			l_sumxi = 0; l_sumi = 0; l_n = 0;
 
 			// Partie droite de l'image
 			r_roi = sobel(rigt_slid[nw].rect);
-			r_sumxi = 0;
-			r_sumi = 0;
-			r_n = 0;
+			r_sumxi = 0; r_sumi = 0; r_n = 0;
 
 			// Calcul du x moyen pondere pour chaque cote
 			for (int r = 0; r < l_roi.rows; r++) {
@@ -302,9 +260,6 @@ int main(int argc, char** argv)
 			// Sinon on augmente la zone de recherche pour la fenetre suivante
 			else {
 	  		rigt_slid[nw].detected = false;
-
-				// a modif
-	  		// rigt_slid[nw].detected = true;
 				if (nw - 1 > 0){
 					rigt_slid[nw].lane.x = rigt_slid[nw-1].lane.x;
 					rigt_slid[nw].lane.y = rigt_slid[nw-1].lane.y - rigt_slid[nw-1].rect.height;
@@ -330,8 +285,6 @@ int main(int argc, char** argv)
 			else {
 				left_slid[nw].detected = false;
 
-				// a modif
-				// left_slid[nw].detected = true;
 				if (nw - 1 > 0){
 					left_slid[nw].lane.x = left_slid[nw-1].lane.x;
 					left_slid[nw].lane.y = left_slid[nw-1].lane.y - rigt_slid[nw-1].rect.height;
@@ -420,18 +373,16 @@ int main(int argc, char** argv)
 
       // Affichage de la ligne resultante
       vector<Point2f> curvePoints;
+      int x = 0;
   		for (int y = warp_factor * warp.rows; y > 0; y--) {
-  		  int x = 0;
+        x = 0;
   		  for (int n = 0; n <= degre; n++) {
   		 		x += coef.at<float>(n, 0) * pow(y, n);
   		 	}
         curvePoints.push_back(Point2f(x, y));
-
-  		 	// circle(warp, Point(x, y), 2, Scalar(255, 255, 255), CV_FILLED, 8, 0);
-  		 	//circle(warpback, Point(x, y), 2, Scalar(255, 255, 255), CV_FILLED, 8, 0);
   		}
       Mat curve(curvePoints, true);
-      curve.convertTo(curve, CV_32S); //adapt type for polylines
+      curve.convertTo(curve, CV_32S);
       polylines(warp, curve, false, Scalar(255, 255, 255), 1, LINE_AA);
     }
 
@@ -440,6 +391,7 @@ int main(int argc, char** argv)
     // Calcul du temps
     stop = getTickCount();
     dt = ((stop - start)/ getTickFrequency());
+
     // Affichage de la ligne
     int yligne = warp.rows - posy;
     line(warp, Point(posx, warp.rows), Point(posx, yligne), Scalar(255,0,0), THICK);
@@ -461,19 +413,13 @@ int main(int argc, char** argv)
 		putText(warp, to_string(pwr), Point(warp.cols/2,yligne-25*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
     prev_error = curr_error;
 
-
-
+    // Affichage de la ligne de l'erreur
 		line(raw, Point(0, pts_src.at(0).y), Point(raw.cols, pts_src.at(0).y), Scalar(255,0,0), THICK);
 		line(raw, Point(0, pts_src.at(1).y), Point(raw.cols, pts_src.at(1).y), Scalar(255,0,0), THICK);
 
-
-
-		//warpPerspective(warpback, warpback, hinv, Size(warp.cols,warp.rows/warp_factor));
-		//addWeighted(raw, 1, warpback, 0.7, 0, raw);
-		//raw = raw + warpback;
-
-
+    // Affichage frequence de traitement
     putText(raw, to_string((int)(1/dt)) + "Hz", Point(10,15), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
+
 		// AFFICHAGE DES IMAGES ET CREATION DES CALLBACKS
 		imshow("Raw", raw);
 		setMouseCallback("Raw", LineAlignement, NULL);
@@ -492,8 +438,6 @@ int main(int argc, char** argv)
 		//createTrackbar("Kp","PID", &kp, 100);
 		//createTrackbar("Ki","PID", &ki, 100);
 		//createTrackbar("Kd","PID", &kd, 100);
-
-		//imshow("Warp_back", warpback);
 
 		if (waitKey(10) == 27)
       break; // stop capturing by pressing ESC
