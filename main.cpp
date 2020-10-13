@@ -72,18 +72,13 @@ int main(int argc, char** argv)
 
 	// Filtre de sobel
 	double min, max;
-	int xleft, xrigt;
-	int l_max, r_max;
-	int sum;
 
 	// Sliding windows
-	Mat l_roi;
-	int l_sumxi,l_sumi,l_n;
-	Mat r_roi;
-	int r_sumxi,r_sumi,r_n;
+	Mat roi;
+	int xc, sumxi, sumi, n;
 
 	// Loops
-	int c, nw, r;
+	int c, nw, r, s;
 
 	// Temps d'execution
 	double start,stop, dt;
@@ -194,171 +189,118 @@ int main(int argc, char** argv)
 		// ALGORITHME DES FENETRES GLISSANTES
 		//conversion en couleur pour representation des fenetres
 		cvtColor(sobel, slid, COLOR_GRAY2BGR);
-		vector<Window> left_slid(n_win);
-		vector<Window> rigt_slid(n_win);
+
+    // A utiliser plutot que gauche/droite et parametrer le 2
+    vector <vector<Window>> slid_win;
+    slid_win.resize(2, vector<Window>(n_win));
 
     // Definition de la hauteur et largeur des fenetres
-		for (nw = 0; nw < n_win; nw++) {
-			left_slid[nw].rect.height = sobel.rows / n_win;
-			rigt_slid[nw].rect.height = sobel.rows / n_win;
-			left_slid[nw].rect.width = win_width;
-			rigt_slid[nw].rect.width = win_width;
-		}
+    for (nw = 0; nw < n_win; nw++) {
+      for (s = 0; s < 2; s++) {
+        slid_win[s][nw].rect.height = sobel.rows / n_win;
+        slid_win[s][nw].rect.width = win_width;
+      }
+    }
 
 		// Placement de la premiere fenetre
-		left_slid[0].rect.width  = sobel.cols / 2;
-		rigt_slid[0].rect.width  = sobel.cols / 2;
-		left_slid[0].rect.height = sobel.rows - (nw - 1) * sobel.rows / n_win;
-		rigt_slid[0].rect.height = sobel.rows - (nw - 1) * sobel.rows / n_win;
-		left_slid[0].rect.y      = sobel.rows - left_slid[0].rect.height;
-		rigt_slid[0].rect.y      = sobel.rows - rigt_slid[0].rect.height;
-		left_slid[0].rect.x      = 0;
-		rigt_slid[0].rect.x      = sobel.cols / 2;
+    for (s = 0; s < 2; s++) {
+      slid_win[s][0].rect.width  = sobel.cols / 2;
+      slid_win[s][0].rect.height = sobel.rows - (nw - 1) * sobel.rows / n_win;
+      slid_win[s][0].rect.y      = sobel.rows - slid_win[0][0].rect.height;
+    }
+		slid_win[0][0].rect.x      = 0;
+		slid_win[1][0].rect.x      = sobel.cols / 2;
 
 		// Parcours de toute les fenetres
-		for (nw = 0; nw < n_win; nw++) {
+    for (nw = 0; nw < n_win; nw++) {
+      for (s = 0; s < 2; s++) {
 
-			// Partie gauche de l'image
-			l_roi = sobel(left_slid[nw].rect);
-			l_sumxi = 0; l_sumi = 0; l_n = 0;
 
-			// Partie droite de l'image
-			r_roi = sobel(rigt_slid[nw].rect);
-			r_sumxi = 0; r_sumi = 0; r_n = 0;
+        // Partie gauche de l'image
+        roi = sobel(slid_win[s][nw].rect);
+        sumxi = 0; sumi = 0; n = 0;
 
-			// Calcul du x moyen pondere pour chaque cote
-			for (int r = 0; r < l_roi.rows; r++) {
-				for (int c = 0; c < l_roi.cols; c++) {
-					if (l_roi.at<uchar>(r, c) > 0) {
-						l_sumxi += l_roi.at<uchar>(r, c) * c;
-						l_sumi  += l_roi.at<uchar>(r, c);
-						l_n++;
-					}
-				}
-			}
-			for (int r = 0; r < r_roi.rows; r++) {
-				for (int c = 0; c < r_roi.cols; c++) {
-					if (r_roi.at<uchar>(r, c) > 0) {
-						r_sumxi += r_roi.at<uchar>(r, c) * c;
-						r_sumi  += r_roi.at<uchar>(r, c);
-						r_n++;
-					}
-				}
-			}
-
-			// Si il y a assez de points, on place la fenetre sur le x moyen
-			if (r_n > min_points) {
-  			rigt_slid[nw].detected = true;
-        rigt_slid[nw].lane.x = myROI.x + rigt_slid[nw].rect.x + r_sumxi / r_sumi;
-        rigt_slid[nw].lane.y = myROI.y + rigt_slid[nw].rect.y + rigt_slid[nw].rect.height / 2;
-				if (nw + 1 < n_win){
-  				xrigt = rigt_slid[nw].rect.x + r_sumxi / r_sumi - win_width / 2;
-  				xrigt = (xrigt + win_width < sobel.cols) ? xrigt : sobel.cols - win_width;
-				  rigt_slid[nw + 1].rect.x = xrigt;
+        // Calcul du x moyen pondere
+        for (int r = 0; r < roi.rows; r++) {
+          for (int c = 0; c < roi.cols; c++) {
+            if (roi.at<uchar>(r, c) > 0) {
+              sumxi += roi.at<uchar>(r, c) * c;
+              sumi  += roi.at<uchar>(r, c);
+              n++;
+            }
+          }
         }
-			}
-			// Sinon on augmente la zone de recherche pour la fenetre suivante
-			else {
-	  		rigt_slid[nw].detected = false;
-				if (nw - 1 > 0){
-					rigt_slid[nw].lane.x = rigt_slid[nw-1].lane.x;
-					rigt_slid[nw].lane.y = rigt_slid[nw-1].lane.y - rigt_slid[nw-1].rect.height;
-				}
-				if (nw + 1 < n_win){
-						rigt_slid[nw + 1].rect.x = slid.cols / 2;
-						rigt_slid[nw + 1].rect.width = slid.cols / 2;
-        	}
-			}
 
-			// Si il y a assez de points, on place la fenetre sur le x moyen
-			if (l_n > min_points) {
-  			left_slid[nw].detected = true;
-        left_slid[nw].lane.x = myROI.x + left_slid[nw].rect.x + l_sumxi / l_sumi;
-        left_slid[nw].lane.y = myROI.y + left_slid[nw].rect.y + left_slid[nw].rect.height / 2;
-				if (nw + 1 < n_win){
-  				xleft = left_slid[nw].rect.x + l_sumxi / l_sumi - win_width / 2;
-  				xleft = (xleft > 0) ? xleft : 0;
-				  left_slid[nw + 1].rect.x = xleft;
+
+        // Si il y a assez de points, on place la fenetre sur le x moyen
+        if (n > min_points) {
+          slid_win[s][nw].detected = true;
+          slid_win[s][nw].lane.x = myROI.x + slid_win[s][nw].rect.x + sumxi / sumi;
+          slid_win[s][nw].lane.y = myROI.y + slid_win[s][nw].rect.y + slid_win[s][nw].rect.height / 2;
+          if (nw + 1 < n_win){
+            xc = slid_win[s][nw].rect.x + sumxi / sumi - win_width / 2;
+            if (s == 0)
+              xc = (xc > 0) ? xc : 0;
+            else
+              xc = (xc + win_width < sobel.cols) ? xc : sobel.cols - win_width;
+            slid_win[s][nw + 1].rect.x = xc;
+          }
         }
-			}
-			// Sinon on augmente la zone de recherche pour la fenetre suivante
-			else {
-				left_slid[nw].detected = false;
+        // Sinon on augmente la zone de recherche pour la fenetre suivante
+        else {
+          slid_win[s][nw].detected = false;
 
-				if (nw - 1 > 0){
-					left_slid[nw].lane.x = left_slid[nw-1].lane.x;
-					left_slid[nw].lane.y = left_slid[nw-1].lane.y - rigt_slid[nw-1].rect.height;
-				}
-				if (nw + 1 < n_win){
-						left_slid[nw + 1].rect.x = 0;
-						left_slid[nw + 1].rect.width = slid.cols / 2;
-        	}
-			}
+          if (nw - 1 > 0){
+            slid_win[s][nw].lane.x = slid_win[s][nw-1].lane.x;
+            slid_win[s][nw].lane.y = slid_win[s][nw-1].lane.y - slid_win[1][nw-1].rect.height;
+          }
+          if (nw + 1 < n_win){
+            if (s == 0)
+              slid_win[s][nw + 1].rect.x = 0;
+            else
+              slid_win[s][nw + 1].rect.x = slid.cols / 2;
+            slid_win[s][nw + 1].rect.width = slid.cols / 2;
+          }
+        }
 
-			// Calcul de la prochaine position
-			if (nw + 1 < n_win){
-  			left_slid[nw + 1].rect.y = left_slid[nw].rect.y - left_slid[nw + 1].rect.height;
-  			rigt_slid[nw + 1].rect.y = rigt_slid[nw].rect.y - rigt_slid[nw + 1].rect.height;
+        // Calcul de la prochaine position
+        if (nw + 1 < n_win){
+          slid_win[s][nw + 1].rect.y = slid_win[s][nw].rect.y - slid_win[s][nw + 1].rect.height;
+        }
       }
-		}
+    }
 
-    // Affichage puis desactivation de la premiere fenetre (car position erronee >>> )
-    if (rigt_slid[0].detected)
-		  rectangle(slid, rigt_slid[0].rect, Scalar(255, 0, 0), THICK);
-    else
-  		rectangle(slid, rigt_slid[0].rect, Scalar(0, 0, 255), THICK);
-
-    if (left_slid[0].detected)
-			rectangle(slid, left_slid[0].rect, Scalar(0, 255, 0), THICK);
-    else
-  	  rectangle(slid, left_slid[0].rect, Scalar(0, 0, 255), THICK);
-
-    rigt_slid[0].detected = false;
-    left_slid[0].detected = false;
+    // Affichage puis desactivation de la premiere fenetre (car position erronee)
+    for (s = 0; s < 2; s++) {
+      if (slid_win[s][0].detected)
+        rectangle(slid, slid_win[s][0].rect, Scalar(255, 0, 0), THICK);
+      else
+        rectangle(slid, slid_win[s][0].rect, Scalar(0, 0, 255), THICK);
+      slid_win[s][0].detected = false;
+    }
 
 		// Affichage des fenetre et calculs des coordonnes des lignes
 		vector<Rect> center(n_win);
     int nc = 0;
-		for (nw = 1; nw < n_win; nw++) {
+    for (nw = 1; nw < n_win; nw++) {
+      for (s = 0; s < 2; s++) {
 
-      if(left_slid[nw].detected){
-
-  			// Affichage des fenetres
-  			rectangle(slid, left_slid[nw].rect, Scalar(0, 255, 0), THICK);
-
-  			// Affichage des points de ligne detecte
-  			circle(warp, left_slid[nw].lane, THICK, Scalar(255, 255, 255), cv::FILLED, 8, 0);
-      }
-      else{
-  			// Affichage des fenetres
-  			rectangle(slid, left_slid[nw].rect, Scalar(0, 0, 255), THICK);
+        if(slid_win[s][nw].detected){
+          rectangle(slid, slid_win[s][nw].rect, Scalar(0, 255, 0), THICK);
+          circle(warp, slid_win[s][nw].lane, THICK, Scalar(255, 255, 255), cv::FILLED, 8, 0);
+        }
+        else{
+          rectangle(slid, slid_win[s][nw].rect, Scalar(0, 0, 255), THICK);
+        }
       }
 
-      if(rigt_slid[nw].detected){
-
-  			// Affichage des fenetres
-			  rectangle(slid, rigt_slid[nw].rect, Scalar(255, 0, 0), THICK);
-
-  			// Affichage des points de ligne detecte
-			  circle(warp, rigt_slid[nw].lane, THICK, Scalar(255, 255, 255), cv::FILLED, 8, 0);
-      }
-      else{
-  			// Affichage des fenetres
-  			rectangle(slid, rigt_slid[nw].rect, Scalar(0, 0, 255), THICK);
-      }
-
-      if(left_slid[nw].detected && rigt_slid[nw].detected){
-
-  	  	// Calcul de la position du centre
-        center[nc].x = (float)(rigt_slid[nw].lane.x + left_slid[nw].lane.x) / 2;
-        center[nc].y = (float)(rigt_slid[nw].lane.y + left_slid[nw].lane.y) / 2;
-
-  			// Affichage des points de centre de lignes
-  		  // circle(warp, Point(center[nc].x, center[nc].y), 2, Scalar(0, 0, 255), cv::FILLED, 8, 0);
-
+      if(slid_win[0][nw].detected && slid_win[1][nw].detected){
+        center[nc].x = (float)(slid_win[1][nw].lane.x + slid_win[0][nw].lane.x) / 2;
+        center[nc].y = (float)(slid_win[1][nw].lane.y + slid_win[0][nw].lane.y) / 2;
+        // circle(warp, Point(center[nc].x, center[nc].y), 2, Scalar(0, 0, 255), cv::FILLED, 8, 0);
         nc++;
       }
-		}
+    }
 
     Mat coef = Mat(degre + 1, 1, CV_32F);
     if (nc > 0){
