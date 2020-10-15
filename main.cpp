@@ -8,6 +8,8 @@
 #include <time.h>
 #include <math.h>
 
+#include "liaison.h"
+
 using namespace cv;
 using namespace std;
 
@@ -25,7 +27,7 @@ vector<Point2f> pts_dst; // point transformes sur l'image warp
 Mat h, hinv; // matrice de passage raw -> warp et warp -> raw
 
 // Region of interest
-Rect myROI(1, 1, 250, 250); // region traitee
+Rect myROI(110, 116, 139, 113); // region traitee
 Point point1, point2; // utilises pour la definition de cette region
 int drag = 0;
 int select_flag = 0;
@@ -34,10 +36,10 @@ int select_flag = 0;
 int scale = 2; // facteur pour "boost" l'intensite
 int delta = 0;
 int ddepth = CV_16S;
-int threshold_sobel = 160; // filtre
+int threshold_sobel = 58; // filtre
 
 // Sliding windows
-int n_win = 20; // nombre de fenetres
+int n_win = 12; // nombre de fenetres
 int win_width = 25; // largeur en px d'une fenetre
 int min_points = 0; // nombre minimum de points dans la fenetre
 int degre = 2; // degre du polynome pour relier x = f(y)
@@ -57,7 +59,7 @@ double curr_error = 0.0;
 double prev_error = 0.0;
 double kp = 1.0;
 double ki = 0.0;
-double kd = 1.0;
+double kd = 0.0;
 int dir = 0;
 int pwr = 0;
 
@@ -67,6 +69,7 @@ Mat raw, warp, crop, gray, sobel, slid, warpback;
 int main(int argc, char** argv)
 {
   setUseOptimized(1);
+  Initialize();
 
 	Mat grad_x; // derivee de l'intensite selon x
 
@@ -87,7 +90,7 @@ int main(int argc, char** argv)
   VideoCapture cap;
 	if (argc == 1) {
     int apiID = CAP_ANY;
-    for (int deviceID = 0; deviceID < 10; deviceID++) {
+    for (int deviceID = 1; deviceID < 10; deviceID++) {
       cap.open(deviceID + apiID);
       if (cap.isOpened()) {
         break;
@@ -103,10 +106,10 @@ int main(int argc, char** argv)
 	}
 
 	// Calculate Homography
-	pts_src.push_back(Point2f(332, 859));
-	pts_src.push_back(Point2f(607, 702));
-	pts_src.push_back(Point2f(934, 874));
-	pts_src.push_back(Point2f(727, 684));
+	pts_src.push_back(Point2f(91, 231));
+	pts_src.push_back(Point2f(134, 194));
+	pts_src.push_back(Point2f(276, 233));
+	pts_src.push_back(Point2f(223, 196));
 
   // Perspective transformee : Lignes deviennent verticales
 	pts_dst.push_back(Point2f(pts_src.at(1).x, 0));
@@ -135,6 +138,8 @@ int main(int argc, char** argv)
 	resizeWindow("Sliding window", 640, warp_factor * 480);
 
   // Definition des points de bases du PID
+	// posx = 177;
+	// posy = 74;
 	posx = raw.cols/2;
 	posy = raw.rows/2;
 
@@ -162,8 +167,8 @@ int main(int argc, char** argv)
     warpPerspective(raw, warp, h, Size(raw.cols, warp_factor * raw.rows));
 		line(raw,  Point(pts_src.at(0)), Point(pts_src.at(1)), Scalar(255,0,0));
 		line(raw,  Point(pts_src.at(2)), Point(pts_src.at(3)), Scalar(255,0,0));
-		line(warp, Point(pts_dst.at(0)), Point(pts_dst.at(1)), Scalar(255,0,0));
-		line(warp, Point(pts_dst.at(2)), Point(pts_dst.at(3)), Scalar(255,0,0));
+		// line(warp, Point(pts_dst.at(0)), Point(pts_dst.at(1)), Scalar(255,0,0));
+		// line(warp, Point(pts_dst.at(2)), Point(pts_dst.at(3)), Scalar(255,0,0));
 
 		// DEFINITION DE LA ZONE DE TRAITEMENT
 		crop = warp(myROI);
@@ -198,18 +203,17 @@ int main(int argc, char** argv)
     for (nw = 0; nw < n_win; nw++) {
       for (s = 0; s < 2; s++) {
         slid_win[s][nw].rect.height = sobel.rows / n_win;
-        slid_win[s][nw].rect.width = win_width;
+        slid_win[s][nw].rect.width  = win_width;
       }
     }
 
 		// Placement de la premiere fenetre
     for (s = 0; s < 2; s++) {
-      slid_win[s][0].rect.width  = sobel.cols / 2;
-      slid_win[s][0].rect.height = sobel.rows - (nw - 1) * sobel.rows / n_win;
-      slid_win[s][0].rect.y      = sobel.rows - slid_win[0][0].rect.height;
+      slid_win[s][0].rect.width = sobel.cols / 2;
+      slid_win[s][0].rect.y     = sobel.rows - slid_win[0][0].rect.height;
     }
-		slid_win[0][0].rect.x      = 0;
-		slid_win[1][0].rect.x      = sobel.cols / 2;
+		slid_win[0][0].rect.x = 0;
+		slid_win[1][0].rect.x = sobel.cols / 2;
 
 		// Parcours de toute les fenetres
     for (nw = 0; nw < n_win; nw++) {
@@ -355,6 +359,11 @@ int main(int argc, char** argv)
 		putText(warp, to_string(pwr), Point(warp.cols/2,yligne-25*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
     prev_error = curr_error;
 
+
+    pwr = 1700;
+    dir = 3;
+    SendData(dir,pwr);
+
     // Affichage de la ligne de l'erreur
 		line(raw, Point(0, pts_src.at(0).y), Point(raw.cols, pts_src.at(0).y), Scalar(255,0,0), THICK);
 		line(raw, Point(0, pts_src.at(1).y), Point(raw.cols, pts_src.at(1).y), Scalar(255,0,0), THICK);
@@ -446,15 +455,6 @@ void RegionOfInterest(int event, int x, int y, int flags, void* userdata)
 			myROI = Rect(point1.x, point1.y, x - point1.x, y - point1.y);
 		else
 			myROI = Rect(point1.x, point1.y, 1, 1);
-
-//    if (myROI.x < 0)
-//      myROI.x = 0;
-//    if (myROI.x + myROI.width > warp.cols)
-//      myROI.x = warp.cols - myROI.width;
-//    if (myROI.y < 0)
-//      myROI.y = 0;
-//    if (myROI.y + myROI.height > warp.rows)
-//      myROI.y = warp.rows - myROI.height;
 
 		cout << "myROI(" << myROI.x << ", " << myROI.y << ", " << myROI.width << ", " << myROI.height << ")" << endl;
 		drag = 0;
