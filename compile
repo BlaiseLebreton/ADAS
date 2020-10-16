@@ -1,3 +1,2 @@
 echo "Compiling liaison"
-g++ -Wall rs232.c liaison.cpp -o liaison && echo "Done"
-
+g++ -Wall rs232.c liaison.cpp -o liaison -Wno-write-strings && echo "Done"

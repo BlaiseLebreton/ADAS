@@ -21,7 +21,7 @@ int cport_nr=24; /* /dev/ttyUSB0 */
 //     SendData(cmd,pwr);
 //   }
 //   return 0;
-}
+// }
 
 
 int Initialize() {
