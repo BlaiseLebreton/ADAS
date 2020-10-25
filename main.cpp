@@ -76,7 +76,7 @@ int main(int argc, char** argv)
 	Mat grad_x; // derivee de l'intensite selon x
 
 	// Filtre de sobel
-	double min, max;
+	double vmin, vmax;
 
 	// Sliding windows
 	Mat roi;
@@ -187,8 +187,8 @@ int main(int argc, char** argv)
 		convertScaleAbs(grad_x, sobel);
 
 		// Mise a l'echelle de l'image
-		minMaxLoc(sobel, &min, &max);
-		sobel = 255 * sobel / max;
+		minMaxLoc(sobel, &vmin, &vmax);
+		sobel = 255 * sobel / vmax;
 
 		// Filtre de seuil (tout les pixels < threshold passent a zero)
 		threshold(sobel, sobel, threshold_sobel, 255, 3);
@@ -373,7 +373,9 @@ int main(int argc, char** argv)
 		line(raw, Point(0, pts_src.at(1).y), Point(raw.cols, pts_src.at(1).y), Scalar(255,0,0), THICK);
 
     // Affichage frequence de traitement
-    putText(raw, to_string((int)(1/dt)) + "Hz", Point(10,15), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
+    stop = getTickCount();
+    dt = ((stop - start)/ getTickFrequency());
+    putText(raw, to_string((1/dt)) + "Hz", Point(10,15), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
 
 		// AFFICHAGE DES IMAGES ET CREATION DES CALLBACKS
 		imshow("Raw", raw);

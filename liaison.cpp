@@ -9,21 +9,19 @@
 // int cport_nr=25; /* /dev/ttyACM1 */
 int cport_nr=24; /* /dev/ttyACM0 */
 
-int main()
-{
-
-  Initialize();
-
-  int cmd = 0 , pwr = 0;
-  for(int j=0;j<100;j++)
-  {
-    usleep(100000);
-    cmd = -90 +rand()%180;
-    pwr = 1300+rand()%600;
-    SendData(cmd,pwr);
-  }
-  return 0;
-}
+// int main()
+// {
+//   Initialize();
+//   int cmd = 0 , pwr = 0;
+//   for(int j=0;j<100;j++)
+//   {
+//     usleep(100000);
+//     cmd = -90 +rand()%180;
+//     pwr = 1300+rand()%600;
+//     SendData(cmd,pwr);
+//   }
+//   return 0;
+// }
 
 
 int Initialize() {
@@ -48,8 +46,32 @@ int SendData(int cmd, int pwr) {
     n = RS232_PollComport(cport_nr, str_recv, (int)BUF_SIZE);
     str_recv[n] = 0;   /* always put a "null" at the end of a string! */
     if (n > 0)
-    printf("Recv: '%s'\n\n", (char *)str_recv);
+    printf("Recv: '%s'\n\n", str_recv);
+    // printf("Recv: '%s'\n\n", (char *)str_recv);
     usleep(100);  /* waits for reply 100ms */
   }while(n == 0);
   return 0;
 }
+// int SendData(int cmd, int pwr) {
+//   int i,n;
+//   char str_cmd[20], str_pwr[20];
+//   sprintf(str_cmd, "%d", cmd);
+//   sprintf(str_pwr, "%d", pwr);
+//   char str_send[2][BUF_SIZE]; // send data buffer
+//   unsigned char str_recv[BUF_SIZE]; // recv data buffer
+//   strcpy(str_send[0], str_cmd);
+//   strcpy(str_send[1], str_pwr);
+//   for(i=0;i<2;i++)
+//   {
+//     RS232_cputs(cport_nr, str_send[i]); // sends string on serial
+//     printf("Sent to Arduino: '%s'\n", str_send[i]);
+//     do{
+//       n = RS232_PollComport(cport_nr, str_recv, (int)BUF_SIZE);
+//       str_recv[n] = 0;   /* always put a "null" at the end of a string! */
+//       if (n > 0)
+//       printf("Received %i bytes: '%s'\n\n", n, (char *)str_recv);
+//       usleep(1000);  /* waits for reply 100ms */
+//     }while(n == 0);
+//   }
+//   return 0;
+// }

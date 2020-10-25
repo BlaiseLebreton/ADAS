@@ -39,12 +39,16 @@ void setup() {
 String incomingByte;
 char test[25];
 void loop() {
-  while (Serial.available() > 0) { // if any data available
-    incomingByte = Serial.readString(); // read byte
-    // char incomingByte = Serial.read(); // read byte
-    // char string[20];
-    // sprintf(string, "%d", incomingByte);
-    // Serial.writeString(incomingByte); // send it back
+  if (Serial.available() > 0) { // if any data available
+    // incomingByte = char(Serial.read()); // read byte
+    incomingByte = "";
+    while (Serial.available()) {
+      delay(2);  //delay to allow byte to arrive in input buffer
+      char c = Serial.read();
+      incomingByte += c;
+    }
+    // Serial.write(incomingByte); // send it back
+
 
     int passed=0,ci=0,pi=0;
     char sdir[5]; char spwr[5];
@@ -66,69 +70,7 @@ void loop() {
     }
     sdir[ci] = '\0';
     spwr[pi] = '\0';
-    sprintf(test, "%s & %s", sdir, spwr);
+    sprintf(test, "%s_%s", sdir, spwr);
     Serial.write(test); // send it back
-
-
-    // char test[128];
-    // sprintf(test, "%d %d\n", cmd.dir, cmd.pwr);
-    // Serial.write(incomingByte); // send it back
-    // Serial.write(test); // send it back
-
-    //ServoDir.ch = pulseIn(4,HIGH);
-    //ServoPwr.ch = pulseIn(5,HIGH);
-
-
-    // ServoDir.s.write(ServoDir.k * r_cmd + ServoDir.off + 90);
-    // ServoPwr.s.writeMicroseconds(r_pwr);
-
   }
-  //
-  // while (Serial.available() > 0) { // if any data available
-  //   if (index < 2){
-  //     char incomingByte = Serial.read(); // read byte
-  //     inData[index]=incomingByte;
-  //     Serial.write(inData[index]); // send it back
-  //     index++;
-  //   }
-  //   index = 0;
-  //   int r_cmd = min(max(-90,  inData[0]), 90);
-  //   int r_pwr = min(max(1300, inData[1]), 1800);
-  //   //ServoDir.ch = pulseIn(4,HIGH);
-  //   //ServoPwr.ch = pulseIn(5,HIGH);
-  //
-  //
-  //   ServoDir.s.write(ServoDir.k * r_cmd + ServoDir.off + 90);
-  //   ServoPwr.s.writeMicroseconds(r_pwr);
-  //
-  // }
-
-  //  ServoDir.s.write(ServoDir.k * -90 + ServoDir.off + 90); // On envoi la commande de l'angle au servo-moteur
-  //  delay(1500);
-  //  ServoDir.s.write(ServoDir.k * 90 + ServoDir.off + 90); // On envoi la commande de l'angle au servo-moteur
-  //  delay(1500);
-  //  ServoDir.s.write(ServoDir.k * 0 + ServoDir.off + 90); // On envoi la commande de l'angle au servo-moteur
-  //  delay(100);
-  //
-  //  Serial.println("1500");
-  //  ServoPwr.s.writeMicroseconds(1500);
-  //  delay(2500);
-  //  Serial.println("1300");
-  //  ServoPwr.s.writeMicroseconds(1300); //arriere
-  //  delay(2500);
-  //  Serial.println("1500");
-  //  ServoPwr.s.writeMicroseconds(1500);
-  //  delay(2500);
-  //  Serial.println("1700");
-  //  ServoPwr.s.writeMicroseconds(1700); //avant
-  //  delay(2500);
-  //
-  //  ServoDir.ch = pulseIn(4,HIGH);
-  //  ServoPwr.ch = pulseIn(5,HIGH);
-  //
-  //  Serial.print(ServoDir.ch);
-  //  Serial.print(",");
-  //  Serial.println(ServoPwr.ch);
-  //
-  //  delay(100);
 }
