@@ -6,7 +6,7 @@
 #include "liaison.h"
 
 #define BUF_SIZE 128
-int cport_nr=24; /* /dev/ttyUSB0 */
+int cport_nr=25; /* /dev/ttyACM1 */
 
 // int main()
 // {
@@ -53,7 +53,7 @@ int SendData(int cmd, int pwr) {
       str_recv[n] = 0;   /* always put a "null" at the end of a string! */
       if (n > 0)
       printf("Received %i bytes: '%s'\n\n", n, (char *)str_recv);
-      usleep(100);  /* waits for reply 100ms */
+      usleep(1000);  /* waits for reply 100ms */
     }while(n == 0);
   }
   return 0;

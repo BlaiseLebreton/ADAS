@@ -69,7 +69,9 @@ Mat raw, warp, crop, gray, sobel, slid, warpback;
 int main(int argc, char** argv)
 {
   setUseOptimized(1);
-  Initialize();
+  if (Initialize() == 1){
+    return 1;
+  }
 
 	Mat grad_x; // derivee de l'intensite selon x
 
@@ -360,8 +362,8 @@ int main(int argc, char** argv)
     prev_error = curr_error;
 
 
-    pwr = 1700;
-    dir = 3;
+    // pwr = 1700;
+    // dir = 3;
     SendData(dir,pwr);
 
     // Affichage de la ligne de l'erreur
