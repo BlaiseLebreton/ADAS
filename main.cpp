@@ -362,6 +362,8 @@ int main(int argc, char** argv)
     prev_error = curr_error;
 
 
+    dir = min(max(-90,  dir),   90);
+    pwr = min(max(1300, pwr), 1800);
     // pwr = 1700;
     // dir = 3;
     SendData(dir,pwr);
