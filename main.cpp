@@ -205,7 +205,10 @@ int main(int argc, char** argv)
     // Definition de la hauteur et largeur des fenetres
     for (nw = 0; nw < n_win; nw++) {
       for (s = 0; s < 2; s++) {
-        slid_win[s][nw].rect.height = sobel.rows / n_win;
+        if (nw == 0)
+          slid_win[s][nw].rect.height = sobel.rows - (n_win-1)*floor(sobel.rows/n_win);
+        else
+          slid_win[s][nw].rect.height = floor(sobel.rows/n_win);
         slid_win[s][nw].rect.width  = win_width;
       }
     }
