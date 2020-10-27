@@ -31,7 +31,6 @@ Mat h, hinv; // matrice de passage raw -> warp et warp -> raw
 Rect myROI(195, 11, 181, 281); // region traitee
 Point point1, point2; // utilises pour la definition de cette region
 int drag = 0;
-int select_flag = 0;
 
 // Sobel
 int scale = 2; // facteur pour "boost" l'intensite
@@ -93,15 +92,15 @@ int main(int argc, char** argv)
   VideoCapture cap;
 	if (argc == 1) {
     int apiID = CAP_ANY;
-    for (int deviceID = 1; deviceID < 10; deviceID++) {
+    for (int deviceID = 9; deviceID >= 0; deviceID--) {
       cap.open(deviceID + apiID);
       if (cap.isOpened()) {
         break;
       }
     }
 		//Definition de la resolution
-		cap.set(CAP_PROP_FRAME_WIDTH,  320);
-		cap.set(CAP_PROP_FRAME_HEIGHT, 240);
+		// cap.set(CAP_PROP_FRAME_WIDTH,  320);
+		// cap.set(CAP_PROP_FRAME_HEIGHT, 240);
 		cap >> raw;
 	}
 	else{
@@ -473,7 +472,6 @@ void RegionOfInterest(int event, int x, int y, int flags, void* userdata)
 	if (event == cv::EVENT_LBUTTONUP)
 	{
 		/* ROI selected */
-		select_flag = 1;
 		drag = 0;
 	}
 }
