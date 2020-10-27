@@ -18,6 +18,7 @@ void RegionOfInterest(int event, int x, int y, int flags, void* userdata);
 void polyfit(const Mat& src_x, const Mat& src_y, Mat& dst, int order);
 
 #define THICK 1
+#define DEBUG 1
 
 // Warping
 int i = 0; // indice du point de warping
@@ -27,7 +28,7 @@ vector<Point2f> pts_dst; // point transformes sur l'image warp
 Mat h, hinv; // matrice de passage raw -> warp et warp -> raw
 
 // Region of interest
-Rect myROI(110, 116, 139, 113); // region traitee
+Rect myROI(195, 11, 181, 281); // region traitee
 Point point1, point2; // utilises pour la definition de cette region
 int drag = 0;
 int select_flag = 0;
@@ -69,9 +70,9 @@ Mat raw, warp, crop, gray, sobel, slid, warpback;
 int main(int argc, char** argv)
 {
   setUseOptimized(1);
-  if (Initialize() == 1){
-    return 1;
-  }
+  // if (Liaison_Initialize() == 1){
+  //   return 1;
+  // }
 
 	Mat grad_x; // derivee de l'intensite selon x
 
@@ -108,10 +109,10 @@ int main(int argc, char** argv)
 	}
 
 	// Calculate Homography
-	pts_src.push_back(Point2f(91, 231));
-	pts_src.push_back(Point2f(134, 194));
-	pts_src.push_back(Point2f(276, 233));
-	pts_src.push_back(Point2f(223, 196));
+	pts_src.push_back(Point2f(167, 297));
+	pts_src.push_back(Point2f(246, 208));
+	pts_src.push_back(Point2f(457, 299));
+	pts_src.push_back(Point2f(357, 209));
 
   // Perspective transformee : Lignes deviennent verticales
 	pts_dst.push_back(Point2f(pts_src.at(1).x, 0));
@@ -364,9 +365,7 @@ int main(int argc, char** argv)
 
     dir = min(max(-90,  dir),   90);
     pwr = min(max(1300, pwr), 1800);
-    // pwr = 1700;
-    // dir = 3;
-    SendData(dir,pwr);
+    // Liaison_SendData(dir,pwr);
 
     // Affichage de la ligne de l'erreur
 		line(raw, Point(0, pts_src.at(0).y), Point(raw.cols, pts_src.at(0).y), Scalar(255,0,0), THICK);
@@ -375,7 +374,7 @@ int main(int argc, char** argv)
     // Affichage frequence de traitement
     stop = getTickCount();
     dt = ((stop - start)/ getTickFrequency());
-    putText(raw, to_string((1/dt)) + "Hz", Point(10,15), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
+    putText(raw, to_string((int)(1/dt)) + "Hz", Point(10,15), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
 
 		// AFFICHAGE DES IMAGES ET CREATION DES CALLBACKS
 		imshow("Raw", raw);
@@ -411,7 +410,8 @@ void LineAlignement(int event, int x, int y, int flags, void* userdata)
 	if (event == EVENT_LBUTTONDOWN)
 	{
 		if (i >= 0 && i <= 3) {
-			cout << "src[" << i << "] : " << x << ", " << y << endl;
+      if (DEBUG > 0)
+			   cout << "src[" << i << "] : " << x << ", " << y << endl;
 			(pts_src.at(i)).x = x;
 			(pts_src.at(i)).y = y;
 		}
@@ -462,7 +462,8 @@ void RegionOfInterest(int event, int x, int y, int flags, void* userdata)
 		else
 			myROI = Rect(point1.x, point1.y, 1, 1);
 
-		cout << "myROI(" << myROI.x << ", " << myROI.y << ", " << myROI.width << ", " << myROI.height << ")" << endl;
+    if (DEBUG > 0)
+		  cout << "myROI(" << myROI.x << ", " << myROI.y << ", " << myROI.width << ", " << myROI.height << ")" << endl;
 		drag = 0;
 	}
 
