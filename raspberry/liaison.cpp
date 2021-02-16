@@ -37,13 +37,12 @@ int Liaison_Initialize() {
   return 0;
 }
 
-// int _cmd,_pwr;
 char str_send[BUF_SIZE];
 unsigned char str_recv[BUF_SIZE];
 int Liaison_SendData(int cmd, int pwr) {
   sprintf(str_send, "%d_%d", cmd, pwr);
+
   if (strcmp(str_send,(char*)str_recv) != 0) { // Si commande différente ou dernière commande mal transmise (str_recv erronee)
-  // if (cmd != _cmd || pwr != _pwr) { // Si commande différente
     int n;
     RS232_cputs(cport_nr, str_send);
     if (DEBUG > 1)
@@ -55,8 +54,6 @@ int Liaison_SendData(int cmd, int pwr) {
         printf("Recv: '%s'\n\n", str_recv);
       usleep(100);  /* waits for reply 100ms */
     }while(n == 0);
-    // _cmd = cmd;
-    // _pwr = pwr;
   }
   return 0;
 }

@@ -8,7 +8,10 @@
 #include <time.h>
 #include <math.h>
 
-#include "liaison.h"
+#define LIAISON 1
+#ifdef LIAISON
+  #include "liaison.h"
+#endif
 
 using namespace cv;
 using namespace std;
@@ -18,7 +21,7 @@ void RegionOfInterest(int event, int x, int y, int flags, void* userdata);
 void polyfit(const Mat& src_x, const Mat& src_y, Mat& dst, int order);
 
 #define THICK 1
-#define DEBUG 1
+#define DEBUG 2
 
 // Warping
 int i = 0; // indice du point de warping
@@ -69,9 +72,15 @@ Mat raw, warp, crop, gray, sobel, slid, warpback;
 int main(int argc, char** argv)
 {
   setUseOptimized(1);
-  // if (Liaison_Initialize() == 1){
-  //   return 1;
-  // }
+
+  if (LIAISON == 1) {
+    if (Liaison_Initialize() == 1){
+      return 1;
+    }
+    else {
+      printf("Comport opened\n");
+    }
+  }
 
 	Mat grad_x; // derivee de l'intensite selon x
 
@@ -367,7 +376,14 @@ int main(int argc, char** argv)
 
     dir = min(max(-90,  dir),   90);
     pwr = min(max(1300, pwr), 1800);
-    // Liaison_SendData(dir,pwr);
+
+    pwr = 1500;
+
+
+    if (LIAISON == 1) {
+      // printf("%d %d\n",dir,pwr);
+      Liaison_SendData(dir,pwr);
+    }
 
     // Affichage de la ligne de l'erreur
 		line(raw, Point(0, pts_src.at(0).y), Point(raw.cols, pts_src.at(0).y), Scalar(255,0,0), THICK);
