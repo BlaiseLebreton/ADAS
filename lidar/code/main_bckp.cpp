@@ -44,19 +44,13 @@ using namespace ydlidar;
 #endif
 
 int main(int argc, char *argv[]) {
-  printf("__   ______  _     ___ ____    _    ____  \n");
-  printf("\\ \\ / /  _ \\| |   |_ _|  _ \\  / \\  |  _ \\ \n");
-  printf(" \\ V /| | | | |    | || | | |/ _ \\ | |_) | \n");
-  printf("  | | | |_| | |___ | || |_| / ___ \\|  _ <  \n");
-  printf("  |_| |____/|_____|___|____/_/   \\_\\_| \\_\\ \n");
-  printf("\n");
-  fflush(stdout);
   std::string port;
   ydlidar::init(argc, argv);
 
-  std::map<std::string, std::string> ports =
-    ydlidar::YDlidarDriver::lidarPortList();
+  std::map<std::string, std::string> ports = ydlidar::YDlidarDriver::lidarPortList();
   std::map<std::string, std::string>::iterator it;
+
+  printf("%d\n", ports.size());
 
   if (ports.size() == 1) {
     port = ports.begin()->second;

@@ -1,4 +1,4 @@
-﻿/*********************************************************************
+/*********************************************************************
 * Software License Agreement (BSD License)
 *
 *  Copyright (c) 2018, EAIBOT, Inc.
@@ -36,8 +36,16 @@
 #include <string>
 #include <algorithm>
 #include <cctype>
+#include <opencv2/core.hpp>
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/videoio.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/plot.hpp>
+#include <unistd.h>
 using namespace std;
 using namespace ydlidar;
+using namespace cv;
 
 #if defined(_MSC_VER)
 #pragma comment(lib, "ydlidar_driver.lib")
@@ -54,8 +62,7 @@ int main(int argc, char *argv[]) {
   std::string port;
   ydlidar::init(argc, argv);
 
-  std::map<std::string, std::string> ports =
-    ydlidar::YDlidarDriver::lidarPortList();
+  std::map<std::string, std::string> ports = ydlidar::YDlidarDriver::lidarPortList();
   std::map<std::string, std::string>::iterator it;
 
   if (ports.size() == 1) {
@@ -95,97 +102,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  int baudrate = 230400;
-  std::map<int, int> baudrateList;
-  baudrateList[0] = 115200;
-  baudrateList[1] = 128000;
-  baudrateList[2] = 153600;
-  baudrateList[3] = 230400;
-  baudrateList[4] = 512000;
-
-  printf("Baudrate:\n");
-
-  for (std::map<int, int>::iterator it = baudrateList.begin();
-       it != baudrateList.end(); it++) {
-    printf("%d. %d\n", it->first, it->second);
-  }
-
-  while (ydlidar::ok()) {
-    printf("Please select the lidar baudrate:");
-    std::string number;
-    std::cin >> number;
-
-    if ((size_t)atoi(number.c_str()) > baudrateList.size()) {
-      continue;
-    }
-
-    baudrate = baudrateList[atoi(number.c_str())];
-    break;
-  }
-
-  if (!ydlidar::ok()) {
-    return 0;
-  }
-
-  bool isSingleChannel = false;
-  bool isTOFLidar = false;
-  std::string input_channel;
-  std::string input_tof;
-  printf("Whether the Lidar is one-way communication[yes/no]:");
-  std::cin >> input_channel;
-  std::transform(input_channel.begin(), input_channel.end(),
-                 input_channel.begin(),
-  [](unsigned char c) {
-    return std::tolower(c);  // correct
-  });
-
-  if (input_channel.find("yes") != std::string::npos) {
-    isSingleChannel = true;
-  }
-
-  if (!ydlidar::ok()) {
-    return 0;
-  }
-
-  printf("Whether the Lidar is a TOF Lidar [yes/no]:");
-  std::cin >> input_tof;
-  std::transform(input_tof.begin(), input_tof.end(),
-                 input_tof.begin(),
-  [](unsigned char c) {
-    return std::tolower(c);  // correct
-  });
-
-  if (input_tof.find("yes") != std::string::npos) {
-    isTOFLidar = true;
-  }
-
-  if (!ydlidar::ok()) {
-    return 0;
-  }
-
-  std::string input_frequency;
-
+  int baudrate = 115200;
+  bool isSingleChannel = true;
+  bool isTOFLidar = true;
   float frequency = 8.0;
 
-  while (ydlidar::ok() && !isSingleChannel) {
-    printf("Please enter the lidar scan frequency[3-15.7]:");
-    std::cin >> input_frequency;
-    frequency = atof(input_frequency.c_str());
-
-    if (frequency <= 15.7 && frequency >= 3.0) {
-      break;
-    }
-
-    fprintf(stderr,
-            "Invalid scan frequency,The scanning frequency range is 5 to 12 HZ, Please re-enter.\n");
-  }
-
   if (!ydlidar::ok()) {
     return 0;
   }
-
-
-
 
   CYdLidar laser;
   //<! lidar port
@@ -211,7 +135,7 @@ int main(int argc, char *argv[]) {
 
   //unit: m
   laser.setMinRange(0.01);
-  laser.setMaxRange(64.0);
+  laser.setMaxRange(8.0);
 
   //unit: Hz
   laser.setScanFrequency(frequency);
@@ -224,20 +148,81 @@ int main(int argc, char *argv[]) {
   if (ret) {
     ret = laser.turnOn();
   }
+  int WIDTH = 800;
+  int SCALE = WIDTH/(8.0*2.0);
+  Mat data = Mat::zeros(Size(WIDTH, WIDTH), CV_8UC3);
+  // Create window
+  namedWindow("Raw", WINDOW_NORMAL);
+  resizeWindow("Raw", WIDTH, WIDTH);
+
+  Mat plot_result;
+  int Coord_x, Coord_y, psi = 25;
+  float R,E = 0.3, L = 0.2, R_i = R - (L/2), R_e = R + (L/2);
+  unsigned int microseconds=1000000;
+  
+  
+  createTrackbar("Angle braquage", "Raw", &psi,  90);
+  setTrackbarMin("Angle braquage", "Raw",       -90);
+  //-------------------------------//
+  //     fill your data here
+  //-------------------------------//
+  //  Ptr<plot::Plot2d> plot;
+  //  plot = plot::createPlot2d(data);
+  //  plot->render(plot_result);
+  //-------------------------------//
+  //         show the plot
+  //-------------------------------//
+  //  imshow("plot",plot_result );
+
+
 
   while (ret && ydlidar::ok()) {
     bool hardError;
     LaserScan scan;
+    data = 0;
+    R = E/cos((90-psi)*2*3.14/360.0); // calcul de rayon de la trajectoire en fonction de l'empattement et de rayon de braquage
 
     if (laser.doProcessSimple(scan, hardError)) {
-      fprintf(stdout, "Scan received[%llu]: %u ranges is [%f]Hz\n",
-              scan.stamp,
-              (unsigned int)scan.points.size(), 1.0 / scan.config.scan_time);
+      fprintf(stdout, "Scan received[%llu]: %u ranges is [%f]Hz\n", scan.stamp, (unsigned int)scan.points.size(), 1.0 / scan.config.scan_time);
+      for(int i = 0; i < scan.points.size(); i++)
+      {
+        // printf("point %d : angle %f and range %f \n",i,scan.points[i].angle*(360/(2*3.14)),scan.points[i].range);//coordonnes polaires
+        // printf("point %d : x = %f and y = %f \n",i,scan.points[i].range *cos(scan.points[i].angle),
+        //                                            scan.points[i].range *sin(scan.points[i].angle)); //coordonnes cartesiennes
+        Coord_x = round(scan.points[i].range*SCALE*cos(scan.points[i].angle)) + WIDTH/2;
+        Coord_y = - round(scan.points[i].range*SCALE*sin(scan.points[i].angle)) + WIDTH/2;
+               
+                // printf("Coords : %d %d \n",Coord_x, Coord_y);
+            
+        if (Coord_x <= WIDTH/2)
+           data.at<Vec3b>(Coord_x, Coord_y) = Vec3b(0,0,255);
+        else 
+          data.at<Vec3b>(Coord_x, Coord_y) = Vec3b(0,255,0);
+         
+
+
+      }
       fflush(stdout);
     } else {
       fprintf(stderr, "Failed to get Lidar Data\n");
       fflush(stderr);
     }
+
+    int C_y = WIDTH/2;
+    int C_x = WIDTH/2 - R*SCALE;
+    circle(data, Point(C_x, C_y), abs(R*SCALE), Scalar( 0, 0, 255 ), 1, LINE_8);
+    circle(data, Point(C_x, C_y), abs(R_i * SCALE), Scalar( 0, 255,0  ), 1, LINE_8);
+    circle(data, Point(C_x, C_y), abs(R_e * SCALE), Scalar( 255, 0, 0 ), 1, LINE_8);
+  
+    if (Coord_x <=R_e & Coord_x >= R_i & Coord_y <=R_e & Coord_y >= R_i)
+      data.at<Vec3b>(Coord_x, Coord_y) = Vec3b(255,0,0);
+      printf("Attention!!!");
+      
+    
+    // usleep(microseconds);
+    imshow("Raw", data);
+    waitKey(1);
+
   }
 
   laser.turnOff();
