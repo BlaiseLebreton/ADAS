@@ -15,25 +15,28 @@ typedef struct{ // recu
 typedef struct{
   Servo s;
   float k = 0.35;
-  int off = 0;
-  int ch;
+  int off = 90;
 }servo;
 
 //structures
 servo ServoDir;
-servo ServoPwr;
+Servo ServoPwr;
 commande cmd;
 
 void setup() {
 
   Serial.begin(230400); // opens serial port, sets data rate to 57600 baud
   ServoDir.s.attach(2);// attacher le varaible de l'angle du servo-moteur à un pin
-  ServoPwr.s.attach(3);
+  ServoPwr.attach(3);
+  delay(1000);
   ServoDir.s.write(0); // on place le servo à 0 degré au demarrage
-  ServoPwr.s.write(0);
   pinMode(4, INPUT);
   pinMode(5, INPUT);
-  ServoPwr.s.writeMicroseconds(1500);
+  ServoPwr.writeMicroseconds(1500);
+  ServoDir.s.write(0); // on place le servo à 0 degré au demarrage
+  delay(1000);
+  ServoPwr.writeMicroseconds(1500);
+  ServoDir.s.write(0); // on place le servo à 0 degré au demarrage
 }
 
 String incomingByte;
@@ -47,8 +50,6 @@ void loop() {
       char c = Serial.read();
       incomingByte += c;
     }
-    // Serial.write(incomingByte); // send it back
-
 
     int passed=0,ci=0,pi=0;
     char sdir[5]; char spwr[5];
@@ -71,6 +72,13 @@ void loop() {
     sdir[ci] = '\0';
     spwr[pi] = '\0';
     sprintf(test, "%s_%s", sdir, spwr);
-    Serial.write(test); // send it back
+    Serial.write(test);
+
+    cmd.dir = -atoi(sdir);
+    cmd.pwr =  atoi(spwr);
+
+    ServoDir.s.write(ServoDir.k*cmd.dir+ServoDir.off); // on place le servo à 0 degré au demarrage
+
+    //ServoDir.s.write(atoi(sdir)); // on place le servo à 0 degré au demarrage
   }
 }
