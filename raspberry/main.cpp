@@ -31,7 +31,7 @@ vector<Point2f> pts_dst; // point transformes sur l'image warp
 Mat h, hinv; // matrice de passage raw -> warp et warp -> raw
 
 // Region of interest
-Rect myROI(85, 125, 161, 103); // region traitee
+Rect myROI(74, 144, 171, 87); // region traitee
 Point point1, point2; // utilises pour la definition de cette region
 int drag = 0;
 
@@ -118,10 +118,10 @@ int main(int argc, char** argv)
 	}
 
 	// Calculate Homography
-	pts_src.push_back(Point2f(16, 172));
-	pts_src.push_back(Point2f(111, 118));
-	pts_src.push_back(Point2f(315, 173));
-	pts_src.push_back(Point2f(224, 120));
+	pts_src.push_back(Point2f(3, 129));
+	pts_src.push_back(Point2f(102, 79));
+	pts_src.push_back(Point2f(315, 130));
+	pts_src.push_back(Point2f(221, 80));
 
   // Perspective transformee : Lignes deviennent verticales
 	pts_dst.push_back(Point2f(pts_src.at(1).x, 0));
@@ -174,6 +174,9 @@ int main(int argc, char** argv)
 
     // Calcul du temps d'execution
     start = getTickCount();
+
+		// Rotation 180°
+    flip(raw, raw, 0);
 
 		// TRANSFORMATION DE L'IMAGE
     warpPerspective(raw, warp, h, Size(raw.cols, warp_factor * raw.rows));
