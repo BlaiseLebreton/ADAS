@@ -8,7 +8,7 @@
 #include <time.h>
 #include <math.h>
 
-#define LIAISON 1
+#define LIAISON 0
 #ifdef LIAISON
   #include "liaison.h"
 #endif
@@ -31,7 +31,7 @@ vector<Point2f> pts_dst; // point transformes sur l'image warp
 Mat h, hinv; // matrice de passage raw -> warp et warp -> raw
 
 // Region of interest
-Rect myROI(195, 11, 181, 281); // region traitee
+Rect myROI(85, 125, 161, 103); // region traitee
 Point point1, point2; // utilises pour la definition de cette region
 int drag = 0;
 
@@ -39,11 +39,11 @@ int drag = 0;
 int scale = 2; // facteur pour "boost" l'intensite
 int delta = 0;
 int ddepth = CV_16S;
-int threshold_sobel = 58; // filtre
+int threshold_sobel = 30; // filtre
 
 // Sliding windows
-int n_win = 12; // nombre de fenetres
-int win_width = 25; // largeur en px d'une fenetre
+int n_win = 10; // nombre de fenetres
+int win_width = 30; // largeur en px d'une fenetre
 int min_points = 0; // nombre minimum de points dans la fenetre
 int degre = 2; // degre du polynome pour relier x = f(y)
 struct Window{
@@ -67,7 +67,8 @@ int dir = 0;
 int pwr = 0;
 
 // images pour traitement
-Mat raw, warp, crop, gray, sobel, slid, warpback;
+Mat raw, warp, crop, hsv, sobel, slid, warpback;
+vector<Mat> hsv_chan(3);
 
 int main(int argc, char** argv)
 {
@@ -108,8 +109,8 @@ int main(int argc, char** argv)
       }
     }
 		//Definition de la resolution
-		// cap.set(CAP_PROP_FRAME_WIDTH,  320);
-		// cap.set(CAP_PROP_FRAME_HEIGHT, 240);
+		cap.set(CAP_PROP_FRAME_WIDTH,  640);
+		cap.set(CAP_PROP_FRAME_HEIGHT, 360);
 		cap >> raw;
 	}
 	else{
@@ -117,10 +118,10 @@ int main(int argc, char** argv)
 	}
 
 	// Calculate Homography
-	pts_src.push_back(Point2f(167, 297));
-	pts_src.push_back(Point2f(246, 208));
-	pts_src.push_back(Point2f(457, 299));
-	pts_src.push_back(Point2f(357, 209));
+	pts_src.push_back(Point2f(16, 172));
+	pts_src.push_back(Point2f(111, 118));
+	pts_src.push_back(Point2f(315, 173));
+	pts_src.push_back(Point2f(224, 120));
 
   // Perspective transformee : Lignes deviennent verticales
 	pts_dst.push_back(Point2f(pts_src.at(1).x, 0));
@@ -144,15 +145,15 @@ int main(int argc, char** argv)
 	namedWindow("Sliding window", WINDOW_NORMAL);
 
   // Redimensionnement
-	resizeWindow("Raw", 640, 480);
-	resizeWindow("Warp", 640, warp_factor * 480);
-	resizeWindow("Sliding window", 640, warp_factor * 480);
+	resizeWindow("Raw", 640, 360);
+	resizeWindow("Warp", 640, warp_factor * 360);
+	resizeWindow("Sliding window", 640, warp_factor * 360);
 
   // Definition des points de bases du PID
 	// posx = 177;
 	// posy = 74;
 	posx = raw.cols/2;
-	posy = raw.rows/2;
+	posy = raw.rows/4;
 
 	// Debut du traitement temps reel
 	cout << "Debut de capture" << endl;
@@ -188,11 +189,14 @@ int main(int argc, char** argv)
 		// Reduction bruit
 		GaussianBlur(crop, crop, Size(3, 3), 0, 0, BORDER_DEFAULT);
 
-		// Conversion en niveau de gris
-		cvtColor(crop, gray, COLOR_BGR2GRAY);
+		// Conversion en HSV
+    cvtColor(crop, hsv, CV_BGR2HSV);
+
+    // Separation canaux
+    split(hsv, hsv_chan);
 
 		// Filtre de Sobel
-		Sobel(gray, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
+		Sobel(hsv_chan[0], grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
 		convertScaleAbs(grad_x, sobel);
 
 		// Mise a l'echelle de l'image
@@ -400,8 +404,8 @@ int main(int argc, char** argv)
 
 		imshow("Warp", warp);
 		setMouseCallback("Warp", RegionOfInterest, NULL);
-    createTrackbar("Ligne", "Warp", &posy, warp.rows);
-    createTrackbar("Posx",  "Warp", &posx, warp.cols);
+    createTrackbar("Posy", "Warp", &posy, warp.rows);
+    createTrackbar("Posx", "Warp", &posx, warp.cols);
 		imshow("Sliding window", slid);
 		createTrackbar("Seuil",   "Sliding window", &threshold_sobel, 255);
 		createTrackbar("Nombre",  "Sliding window", &n_win,            50);
@@ -413,7 +417,7 @@ int main(int argc, char** argv)
 		//createTrackbar("Ki","PID", &ki, 100);
 		//createTrackbar("Kd","PID", &kd, 100);
 
-		if (waitKey(10) == 27)
+		if (waitKey(1) == 27)
       break; // stop capturing by pressing ESC
 
 	}
