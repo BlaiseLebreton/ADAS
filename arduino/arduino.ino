@@ -21,49 +21,63 @@ typedef struct{
 //structures
 servo ServoDir;
 Servo ServoPwr;
-commande cmd;
+commande rasp;
+commande recv;
 
 void setup() {
-
   Serial.begin(230400); // opens serial port, sets data rate to 57600 baud
+  pinMode(4, INPUT);
+  pinMode(5, INPUT);
+
+  // Initialisation commandes
   ServoDir.s.attach(2);// attacher le varaible de l'angle du servo-moteur à un pin
   ServoPwr.attach(3);
   delay(1000);
-  ServoDir.s.write(0); // on place le servo à 0 degré au demarrage
-  pinMode(4, INPUT);
-  pinMode(5, INPUT);
+  ServoDir.s.write(0);
   ServoPwr.writeMicroseconds(1500);
-  ServoDir.s.write(0); // on place le servo à 0 degré au demarrage
   delay(1000);
   ServoPwr.writeMicroseconds(1500);
-  ServoDir.s.write(0); // on place le servo à 0 degré au demarrage
+  ServoDir.s.write(0);
 }
 
 String incomingByte;
 char test[25];
+int i;
+
 void loop() {
-  if (Serial.available() > 0) { // if any data available
-    // incomingByte = char(Serial.read()); // read byte
+
+  // Commande receiver
+  recv.pwr = 0;
+  recv.dir = 0;
+  for (i = 1; i < 4; i++) {
+    recv.pwr += pulseIn(4, HIGH);
+    recv.dir += pulseIn(5, HIGH);
+  }
+  recv.pwr = recv.pwr/(i-1);
+  recv.dir = map(recv.dir/(i-1), 1000, 2000, -90, 90);
+
+  // Commande raspberry
+  if (Serial.available() > 0) {
     incomingByte = "";
     while (Serial.available()) {
-      delay(2);  //delay to allow byte to arrive in input buffer
+      delay(2);
       char c = Serial.read();
       incomingByte += c;
     }
 
+    // Decoupage du message en deux (direction_power)
     int passed=0,ci=0,pi=0;
     char sdir[5]; char spwr[5];
     for (int i = 0; i<incomingByte.length(); i++) {
-    // for (int i = 0; i<strlen(incomingByte); i++) {
       if (incomingByte[i] == '_') {
         passed = 1;
       }
-      else{
+      else {
         if (passed == 0) {
           sdir[ci] = incomingByte[i];
           ci++;
         }
-        else{
+        else {
           spwr[pi] = incomingByte[i];
           pi++;
         }
@@ -71,14 +85,26 @@ void loop() {
     }
     sdir[ci] = '\0';
     spwr[pi] = '\0';
+
+    // Validation reception
     sprintf(test, "%s_%s", sdir, spwr);
     Serial.write(test);
 
-    cmd.dir = -atoi(sdir);
-    cmd.pwr =  atoi(spwr);
+    // Commande recue par la raspberry
+    rasp.dir = -atoi(sdir);
+    rasp.pwr =  atoi(spwr);
 
-    ServoDir.s.write(ServoDir.k*cmd.dir+ServoDir.off); // on place le servo à 0 degré au demarrage
+    // Application direction si pas d'outrepassement receiver
+    if (abs(recv.pwr) < 10)
+      ServoDir.s.write(ServoDir.k*rasp.dir+ServoDir.off);
+    else
+      ServoDir.s.write(ServoDir.k*recv.dir+ServoDir.off);
 
-    //ServoDir.s.write(atoi(sdir)); // on place le servo à 0 degré au demarrage
+    // Application de la commande si pas d'outrepassement receiver
+    if (recv.pwr > 1250)
+      ServoPwr.writeMicroseconds(rasp.pwr);
+    else
+      ServoPwr.writeMicroseconds(1500); // Emergency stop
+
   }
 }
