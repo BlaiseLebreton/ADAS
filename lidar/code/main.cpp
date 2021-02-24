@@ -50,7 +50,7 @@ using namespace ydlidar;
 using namespace cv;
 
 #if defined(_MSC_VER)
-#pragma comment(lib, "ydlidaR_eriver.lib")
+#pragma comment(lib, "ydlidar_driver.lib")
 #endif
 
 int main(int argc, char *argv[]) {
@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
   laser.setLidarType(isTOFLidar ? TYPE_TOF : TYPE_TRIANGLE);
   laser.setMaxAngle(180);
   laser.setMinAngle(-180);
-  laser.setMinRange(0.01);
+  laser.setMinRange(0.1);
   laser.setMaxRange(8.0);
   laser.setScanFrequency(frequency);
   std::vector<float> ignore_array;
@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
     ret = laser.turnOn();
   }
 
-  int WIDTH = 160;
+  int WIDTH = 800;
   int SCALE = WIDTH/(8.0*2.0);
   Mat data = Mat::zeros(Size(WIDTH, WIDTH), CV_8UC3);
 
@@ -139,8 +139,9 @@ int main(int argc, char *argv[]) {
   resizeWindow("Raw", WIDTH, WIDTH);
 
   Mat plot_result;
-  int sx,sy,cx,cy,lx,rx,psid=10,type;
-  float R,Rs,R_i,R_e,E=0.3,L=1,psi;
+  int sx,sy,cx,cy,lx,rx,psid=0,type,dist;
+  float R,Rs,Ro,R_i,R_e,E=0.3,L=0.2,psi,Ro_m;
+  Point P_m;
 
   createTrackbar("Angle braquage", "Raw", &psid,  90);
   setTrackbarMin("Angle braquage", "Raw",       -90);
@@ -164,10 +165,6 @@ int main(int argc, char *argv[]) {
     if (type == 1) {
       lx = WIDTH/2 - L/2*SCALE;
       rx = WIDTH/2 + L/2*SCALE;
-      line(data, Point(WIDTH/2, WIDTH), Point(WIDTH/2, 0), Scalar(0,     0, 255), 1, LINE_8); // Red
-      line(data, Point(lx ,     WIDTH), Point(lx,      0), Scalar(0,   255,   0), 1, LINE_8); // Green
-      line(data, Point(rx,      WIDTH), Point(rx,      0), Scalar(255,   0,   0), 1, LINE_8); // Blue
-
     }
     else {
       R = E/cos((90-psi)*2*M_PI/360.0); // calcul de rayon de la trajectoire en fonction de l'empattement et de rayon de braquage
@@ -183,17 +180,17 @@ int main(int argc, char *argv[]) {
 
       cy = WIDTH/2;
       cx = WIDTH/2 - R*SCALE;
-      circle(data, Point(cx, cy), abs(R  *SCALE), Scalar(0,     0, 255), 1, LINE_8); // Red
-      circle(data, Point(cx, cy),     R_i*SCALE,  Scalar(0,   255,   0), 1, LINE_8); // Green
-      circle(data, Point(cx, cy),     R_e*SCALE,  Scalar(255,   0,   0), 1, LINE_8); // Blue
-
     }
     // printf("R : %f | Rs : %f | R_e : %f | R_i : %f \n", R, Rs, R_e, R_i);
 
     if (laser.doProcessSimple(scan, hardError)) {
+      Ro_m = HUGE_VALF;
+      P_m  = Point(WIDTH/2, WIDTH/2);
       for(int i = 0; i < scan.points.size(); i++) {
-        sx =  round(scan.points[i].range*SCALE*cos(scan.points[i].angle)) + WIDTH/2;
-        sy = -round(scan.points[i].range*SCALE*sin(scan.points[i].angle)) + WIDTH/2;
+
+        scan.points[i].range = scan.points[i].range / 4;
+        sx = round(scan.points[i].range*SCALE*cos(scan.points[i].angle+M_PI/2.0)) + WIDTH/2;
+        sy = round(scan.points[i].range*SCALE*sin(scan.points[i].angle+M_PI/2.0)) + WIDTH/2;
 
         // Green by default
         data.at<Vec3b>(sy, sx) = Vec3b(0,255,0);
@@ -212,9 +209,9 @@ int main(int argc, char *argv[]) {
 
             data.at<Vec3b>(sy, sx) = Vec3b(0,0,255);
 
+
           }
         }
-
 
         // Green if behind
         if (sy >= WIDTH/2) {
@@ -222,16 +219,40 @@ int main(int argc, char *argv[]) {
         }
 
 
+        Ro = HUGE_VALF;
+        if (data.at<Vec3b>(sy, sx) == Vec3b(0,0,255)) {
+          Ro = scan.points[i].range;
+          if (Ro < Ro_m) {
+            Ro_m = Ro;
+            P_m  = Point(sx, sy);
+          }
+        }
+
+
       }
+      printf("%f\n",Ro_m);
+      line(data, Point(WIDTH/2, WIDTH/2), P_m, Scalar(255,255,255), 1);
     }
     else {
       fprintf(stderr, "Failed to get Lidar Data\n");
       fflush(stderr);
     }
 
+    if (type == 1) {
+      line(data, Point(WIDTH/2, WIDTH), Point(WIDTH/2, 0), Scalar(0,     0, 255), 1, LINE_8); // Red
+      line(data, Point(lx ,     WIDTH), Point(lx,      0), Scalar(0,   255,   0), 1, LINE_8); // Green
+      line(data, Point(rx,      WIDTH), Point(rx,      0), Scalar(255,   0,   0), 1, LINE_8); // Blue
+    }
+    else {
+      circle(data, Point(cx, cy), abs(R  *SCALE), Scalar(0,     0, 255), 1, LINE_8); // Red
+      circle(data, Point(cx, cy),     R_i*SCALE,  Scalar(0,   255,   0), 1, LINE_8); // Green
+      circle(data, Point(cx, cy),     R_e*SCALE,  Scalar(255,   0,   0), 1, LINE_8); // Blue
+    }
+
     imshow("Raw", data);
-    if (waitKey(1) == 27)
-    break; // stop capturing by pressing ESC
+    if (waitKey(1) == 27) {
+      break; // stop capturing by pressing ESC
+    }
 
   }
 
