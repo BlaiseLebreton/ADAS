@@ -43,12 +43,14 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/plot.hpp>
 #include <unistd.h>
+#include <math.h>
+
 using namespace std;
 using namespace ydlidar;
 using namespace cv;
 
 #if defined(_MSC_VER)
-#pragma comment(lib, "ydlidar_driver.lib")
+#pragma comment(lib, "ydlidaR_eriver.lib")
 #endif
 
 int main(int argc, char *argv[]) {
@@ -128,7 +130,7 @@ int main(int argc, char *argv[]) {
     ret = laser.turnOn();
   }
 
-  int WIDTH = 800;
+  int WIDTH = 160;
   int SCALE = WIDTH/(8.0*2.0);
   Mat data = Mat::zeros(Size(WIDTH, WIDTH), CV_8UC3);
 
@@ -137,10 +139,10 @@ int main(int argc, char *argv[]) {
   resizeWindow("Raw", WIDTH, WIDTH);
 
   Mat plot_result;
-  int sx,sy,cx,cy,psi = 0;
-  float R,R_g,R_d,E=0.3,L=0.2;
+  int sx,sy,cx,cy,lx,rx,psid=10,type;
+  float R,Rs,R_i,R_e,E=0.3,L=1,psi;
 
-  createTrackbar("Angle braquage", "Raw", &psi,  90);
+  createTrackbar("Angle braquage", "Raw", &psid,  90);
   setTrackbarMin("Angle braquage", "Raw",       -90);
 
   while (ret && ydlidar::ok()) {
@@ -148,32 +150,78 @@ int main(int argc, char *argv[]) {
     LaserScan scan;
     data = 0;
 
-    R = E/cos((90-psi)*2*3.14/360.0); // calcul de rayon de la trajectoire en fonction de l'empattement et de rayon de braquage
+    psi = psid;
 
-    R_g = R - (L/2);
-    R_d = R + (L/2);
+    // Type ligne droite
+    if (abs(psi) < 0.1) {
+      type = 1;
+    }
+    // Type cercle
+    else {
+      type = 0;
+    }
 
-    cy = WIDTH/2;
-    cx = WIDTH/2 - R*SCALE;
-    circle(data, Point(cx, cy), abs(R   *SCALE), Scalar(0,     0, 255), 1, LINE_8);
-    circle(data, Point(cx, cy), abs(R_g *SCALE), Scalar(0,   255,   0), 1, LINE_8);
-    circle(data, Point(cx, cy), abs(R_d *SCALE), Scalar(255,   0,   0), 1, LINE_8);
+    if (type == 1) {
+      lx = WIDTH/2 - L/2*SCALE;
+      rx = WIDTH/2 + L/2*SCALE;
+      line(data, Point(WIDTH/2, WIDTH), Point(WIDTH/2, 0), Scalar(0,     0, 255), 1, LINE_8); // Red
+      line(data, Point(lx ,     WIDTH), Point(lx,      0), Scalar(0,   255,   0), 1, LINE_8); // Green
+      line(data, Point(rx,      WIDTH), Point(rx,      0), Scalar(255,   0,   0), 1, LINE_8); // Blue
+
+    }
+    else {
+      R = E/cos((90-psi)*2*M_PI/360.0); // calcul de rayon de la trajectoire en fonction de l'empattement et de rayon de braquage
+
+      if (psi > 0) {
+        R_i = abs(R - (L/2));
+        R_e = abs(R + (L/2));
+      }
+      else {
+        R_i = abs(R + (L/2));
+        R_e = abs(R - (L/2));
+      }
+
+      cy = WIDTH/2;
+      cx = WIDTH/2 - R*SCALE;
+      circle(data, Point(cx, cy), abs(R  *SCALE), Scalar(0,     0, 255), 1, LINE_8); // Red
+      circle(data, Point(cx, cy),     R_i*SCALE,  Scalar(0,   255,   0), 1, LINE_8); // Green
+      circle(data, Point(cx, cy),     R_e*SCALE,  Scalar(255,   0,   0), 1, LINE_8); // Blue
+
+    }
+    // printf("R : %f | Rs : %f | R_e : %f | R_i : %f \n", R, Rs, R_e, R_i);
 
     if (laser.doProcessSimple(scan, hardError)) {
       for(int i = 0; i < scan.points.size(); i++) {
         sx =  round(scan.points[i].range*SCALE*cos(scan.points[i].angle)) + WIDTH/2;
         sy = -round(scan.points[i].range*SCALE*sin(scan.points[i].angle)) + WIDTH/2;
 
-        // if (Coord_x <=R_d & Coord_x >= R_g & Coord_y <=R_d & Coord_y >= R_g) {
-        //   data.at<Vec3b>(Coord_x, Coord_y) = Vec3b(255,0,0);
-        //   printf("Attention!!!");
-        // }
-        if (sx <= WIDTH/2) {
-          data.at<Vec3b>(sx, sy) = Vec3b(0,0,255);
+        // Green by default
+        data.at<Vec3b>(sy, sx) = Vec3b(0,255,0);
+
+        if (type == 1) {
+          if (sx >= lx && sx <= rx) {
+            data.at<Vec3b>(sy, sx) = Vec3b(0,0,255);
+          }
         }
         else {
-          data.at<Vec3b>(sx, sy) = Vec3b(0,255,0);
+          Rs = sqrtf((sx-cx)*(sx-cx) + (sy-cy)*(sy-cy)) / SCALE;
+          // Red if in trajectory
+          if (Rs >= R_i && Rs <= R_e) {
+            // if (Rs <= R_e) {
+            // line(data, Point(cx, cy), Point(sx, sy), Scalar(255,255,255));
+
+            data.at<Vec3b>(sy, sx) = Vec3b(0,0,255);
+
+          }
         }
+
+
+        // Green if behind
+        if (sy >= WIDTH/2) {
+          data.at<Vec3b>(sy, sx) = Vec3b(0,255,0);
+        }
+
+
       }
     }
     else {
@@ -183,7 +231,7 @@ int main(int argc, char *argv[]) {
 
     imshow("Raw", data);
     if (waitKey(1) == 27)
-      break; // stop capturing by pressing ESC
+    break; // stop capturing by pressing ESC
 
   }
 
