@@ -46,6 +46,10 @@ int i;
 
 void loop() {
 
+  // Commande raspberry par défaut
+  rasp.pwr = 1500;
+  rasp.dir = 0;
+
   // Commande receiver
   recv.pwr = 0;
   recv.dir = 0;
@@ -94,17 +98,21 @@ void loop() {
     rasp.dir = -atoi(sdir);
     rasp.pwr =  atoi(spwr);
 
-    // Application direction si pas d'outrepassement receiver
-    if (abs(recv.pwr) < 10)
-      ServoDir.s.write(ServoDir.k*rasp.dir+ServoDir.off);
-    else
-      ServoDir.s.write(ServoDir.k*recv.dir+ServoDir.off);
+  }
 
-    // Application de la commande si pas d'outrepassement receiver
-    if (recv.pwr > 1250)
-      ServoPwr.writeMicroseconds(rasp.pwr);
-    else
-      ServoPwr.writeMicroseconds(1500); // Emergency stop
+  // Application direction si pas d'outrepassement receiver
+  if (abs(recv.dir) < 25) {
+    ServoDir.s.write(ServoDir.k*rasp.dir+ServoDir.off);
+  }
+  else {
+    ServoDir.s.write(ServoDir.k*recv.dir+ServoDir.off);
+  }
 
+  // Application de la commande si pas d'outrepassement receiver
+  if (recv.pwr > 1250) {
+    ServoPwr.writeMicroseconds(rasp.pwr);
+  }
+  else {
+    ServoPwr.writeMicroseconds(1500); // Emergency stop
   }
 }
