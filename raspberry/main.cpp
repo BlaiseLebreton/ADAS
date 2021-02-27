@@ -193,7 +193,7 @@ int main(int argc, char** argv)
 		GaussianBlur(crop, crop, Size(3, 3), 0, 0, BORDER_DEFAULT);
 
 		// Conversion en HSV
-    cvtColor(crop, hsv, CV_BGR2HSV);
+    cvtColor(crop, hsv, cv::COLOR_BGR2HSV);
 
     // Separation canaux
     split(hsv, hsv_chan);
