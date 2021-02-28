@@ -26,8 +26,8 @@ void polyfit(const Mat& src_x, const Mat& src_y, Mat& dst, int order);
 // Warping
 int i = 0; // indice du point de warping
 int warp_factor = 1; // facteur d'agrandissement en y
-vector<Point2f> pts_src; // point sur l'image raw pour warping
-vector<Point2f> pts_dst; // point transformes sur l'image warp
+vector<Point2f> pts_src; // point sur la frame raw pour warping
+vector<Point2f> pts_dst; // point transformes sur la frame warp
 Mat h, hinv; // matrice de passage raw -> warp et warp -> raw
 
 // Region of interest
@@ -140,18 +140,32 @@ int main(int argc, char** argv)
 	hinv = findHomography(pts_dst, pts_src);
 
   // Creation des fenetres
-	namedWindow("Raw", WINDOW_NORMAL);
-	namedWindow("Warp", WINDOW_NORMAL);
+	namedWindow("Raw",            WINDOW_NORMAL);
+	namedWindow("Warp",           WINDOW_NORMAL);
 	namedWindow("Sliding window", WINDOW_NORMAL);
+	//namedWindow("PID",            WINDOW_NORMAL);
+
+  // Creation callback / trackbar
+  createTrackbar("Seuil",   "Sliding window", &threshold_sobel,      255);
+  createTrackbar("Nombre",  "Sliding window", &n_win,                 50);
+  createTrackbar("Largeur", "Sliding window", &win_width,            100);
+  createTrackbar("MinPix",  "Sliding window", &min_points,          1000);
+  createTrackbar("Posy",    "Warp",           &posy,            raw.rows);
+  createTrackbar("Posx",    "Warp",           &posx,            raw.cols);
+  //createTrackbar("Kp",      "PID",            &kp,                   100);
+  //createTrackbar("Ki",      "PID",            &ki,                   100);
+  //createTrackbar("Kd",      "PID",            &kd,                   100);
+
+  // Callback
+  setMouseCallback("Warp", RegionOfInterest, NULL);
+  setMouseCallback("Raw",  LineAlignement, NULL);
 
   // Redimensionnement
-	resizeWindow("Raw", 640, 360);
-	resizeWindow("Warp", 640, warp_factor * 360);
+	resizeWindow("Raw",            640,               360);
+	resizeWindow("Warp",           640, warp_factor * 360);
 	resizeWindow("Sliding window", 640, warp_factor * 360);
 
   // Definition des points de bases du PID
-	// posx = 177;
-	// posy = 74;
 	posx = raw.cols/2;
 	posy = raw.rows/4;
 
@@ -159,14 +173,17 @@ int main(int argc, char** argv)
 	cout << "Debut de capture" << endl;
 	for(;;)	{
 
-    //Recuperation d'une frame
+
+    /* RECUPERATION D'UNE FRAME */
+
+    // Lecture frame
 		cap >> raw;
 		if (argc == 1)
 			cap >> raw;
 		else
 			raw = imread(argv[1], IMREAD_COLOR);
 
-		// Verification d'une image non vide
+		// Verification frame non vide
 		if (raw.empty()) {
 			cerr << "Image vide\n";
 			return -1;
@@ -178,18 +195,21 @@ int main(int argc, char** argv)
 		// Rotation 180°
     flip(raw, raw, 0);
 
-		// TRANSFORMATION DE L'IMAGE
+
+		// Transformation en bird view
     warpPerspective(raw, warp, h, Size(raw.cols, warp_factor * raw.rows));
 		line(raw,  Point(pts_src.at(0)), Point(pts_src.at(1)), Scalar(255,0,0));
 		line(raw,  Point(pts_src.at(2)), Point(pts_src.at(3)), Scalar(255,0,0));
 		// line(warp, Point(pts_dst.at(0)), Point(pts_dst.at(1)), Scalar(255,0,0));
 		// line(warp, Point(pts_dst.at(2)), Point(pts_dst.at(3)), Scalar(255,0,0));
 
-		// DEFINITION DE LA ZONE DE TRAITEMENT
+		// Crop de la frame
 		crop = warp(myROI);
 
-		// ALGORITHME DU FILTRE DE SOBEL
-		// Reduction bruit
+
+    /* SOBEL */
+
+    // Reduction bruit
 		GaussianBlur(crop, crop, Size(3, 3), 0, 0, BORDER_DEFAULT);
 
 		// Conversion en HSV
@@ -202,15 +222,17 @@ int main(int argc, char** argv)
 		Sobel(hsv_chan[0], grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
 		convertScaleAbs(grad_x, sobel);
 
-		// Mise a l'echelle de l'image
+		// Mise a l'echelle de la frame
 		minMaxLoc(sobel, &vmin, &vmax);
 		sobel = 255 * sobel / vmax;
 
-		// Filtre de seuil (tout les pixels < threshold passent a zero)
+		// Seuillage a zero
 		threshold(sobel, sobel, threshold_sobel, 255, 3);
 
-		// ALGORITHME DES FENETRES GLISSANTES
-		//conversion en couleur pour representation des fenetres
+
+    /* ALGORITHME DES FENETRES GLISSANTES */
+
+    //conversion en couleur pour representation des fenetres
 		cvtColor(sobel, slid, COLOR_GRAY2BGR);
 
     // A utiliser plutot que gauche/droite et parametrer le 2
@@ -241,7 +263,7 @@ int main(int argc, char** argv)
       for (s = 0; s < 2; s++) {
 
 
-        // Partie gauche de l'image
+        // Partie gauche de la frame
         roi = sobel(slid_win[s][nw].rect);
         sumxi = 0; sumi = 0; n = 0;
 
@@ -304,7 +326,7 @@ int main(int argc, char** argv)
       slid_win[s][0].detected = false;
     }
 
-		// Affichage des fenetre et calculs des coordonnes des lignes
+		// Affichage des fenetres et calcul des coordonnes des lignes
 		vector<Rect> center(n_win);
     int nc = 0;
     for (nw = 1; nw < n_win; nw++) {
@@ -327,9 +349,13 @@ int main(int argc, char** argv)
       }
     }
 
+    /* CALCUL DE L'EQUATION DE LA ROUTE x = f(y) */
+
+    // Matrice des coefs
     Mat coef = Mat(degre + 1, 1, CV_32F);
     if (nc > 0){
-  		// CALCUL DE L'EQUATION x = f(y)
+
+      // Mise en forme des i/o
   		Mat src_x = Mat(nc, 1, CV_32F);
   		Mat src_y = Mat(nc, 1, CV_32F);
       for(int n = 0; n < nc; n++){
@@ -354,7 +380,8 @@ int main(int argc, char** argv)
     }
 
 
-    // PID
+    /* PID */
+
     // Calcul du temps
     stop = getTickCount();
     dt = ((stop - start)/ getTickFrequency());
@@ -380,48 +407,38 @@ int main(int argc, char** argv)
 		putText(warp, to_string(pwr), Point(warp.cols/2,yligne-25*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
     prev_error = curr_error;
 
-
+    // Bornage
     dir = min(max(-90,  dir),   90);
     pwr = min(max(1300, pwr), 1800);
 
+    // Override
     pwr = 1500;
 
-
+    // Envoi de la commande a l'arduino
     if (LIAISON == 1) {
-      // printf("%d %d\n",dir,pwr);
       Liaison_SendData(dir,pwr);
     }
 
-    // Affichage de la ligne de l'erreur
+    /* AFFICHAGE */
+
+    // Ligne d'erreur
 		line(raw, Point(0, pts_src.at(0).y), Point(raw.cols, pts_src.at(0).y), Scalar(255,0,0), THICK);
 		line(raw, Point(0, pts_src.at(1).y), Point(raw.cols, pts_src.at(1).y), Scalar(255,0,0), THICK);
 
-    // Affichage frequence de traitement
+    // Frequence de traitement
     stop = getTickCount();
     dt = ((stop - start)/ getTickFrequency());
     putText(raw, to_string((int)(1/dt)) + "Hz", Point(10,15), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
 
-		// AFFICHAGE DES IMAGES ET CREATION DES CALLBACKS
-		imshow("Raw", raw);
-		setMouseCallback("Raw", LineAlignement, NULL);
-
-		imshow("Warp", warp);
-		setMouseCallback("Warp", RegionOfInterest, NULL);
-    createTrackbar("Posy", "Warp", &posy, warp.rows);
-    createTrackbar("Posx", "Warp", &posx, warp.cols);
+		// Frames et creation callback/trackbar
+		imshow("Raw",             raw);
+		imshow("Warp",           warp);
 		imshow("Sliding window", slid);
-		createTrackbar("Seuil",   "Sliding window", &threshold_sobel, 255);
-		createTrackbar("Nombre",  "Sliding window", &n_win,            50);
-		createTrackbar("Largeur", "Sliding window", &win_width,       100);
-		createTrackbar("MinPix",  "Sliding window", &min_points,     1000);
+		//imshow("PID",               0);
 
-		//	imshow("PID", 0);
-		//createTrackbar("Kp","PID", &kp, 100);
-		//createTrackbar("Ki","PID", &ki, 100);
-		//createTrackbar("Kd","PID", &kd, 100);
-
-		if (waitKey(1) == 27)
+		if (waitKey(1) == 27) {
       break; // stop capturing by pressing ESC
+    }
 
 	}
 
@@ -429,11 +446,9 @@ int main(int argc, char** argv)
 	return 0;
 }
 
-// Callback pour calcul des points de transformation>
-void LineAlignement(int event, int x, int y, int flags, void* userdata)
-{
-	if (event == EVENT_LBUTTONDOWN)
-	{
+// Callback pour calcul des points de transformation
+void LineAlignement(int event, int x, int y, int flags, void* userdata) {
+	if (event == EVENT_LBUTTONDOWN)	{
 		if (i >= 0 && i <= 3) {
       if (DEBUG > 0)
 			   cout << "src[" << i << "] : " << x << ", " << y << endl;
@@ -455,7 +470,7 @@ void LineAlignement(int event, int x, int y, int flags, void* userdata)
 			// 	pts_dst.at(j).y = (warp_factor - 1) * raw.rows + pts_src.at(j).y;
 			// }
 
-			h = cv::findHomography(pts_src, pts_dst);
+			h    = cv::findHomography(pts_src, pts_dst);
 			hinv = cv::findHomography(pts_dst, pts_src);
 		}
 		i++;
@@ -466,21 +481,15 @@ void LineAlignement(int event, int x, int y, int flags, void* userdata)
 }
 
 // Callback pour calcul de la region traitee
-void RegionOfInterest(int event, int x, int y, int flags, void* userdata)
-{
-	if (event == cv::EVENT_LBUTTONDOWN && !drag){
-		/* left button clicked. ROI selection begins */
+void RegionOfInterest(int event, int x, int y, int flags, void* userdata) {
+  // LMB clicked. ROI selection begins
+	if (event == cv::EVENT_LBUTTONDOWN && !drag) {
 		point1 = Point(x, y);
 		drag = 1;
 	}
 
-	if (event == cv::EVENT_MOUSEMOVE && drag){
-		/* mouse dragged. ROI being selected */
-		point2 = Point(x, y);
-		//rectangle(img1, point1, point2, CV_RGB(255, 0, 0), 3, 8, 0);
-	}
-
-	if (event == cv::EVENT_LBUTTONUP && drag){
+  // LMB released. ROI end selection
+	if (event == cv::EVENT_LBUTTONUP && drag) {
     point2 = Point(x, y);
 		if (x - point1.x > 0 && y - point1.y > 0)
 			myROI = Rect(point1.x, point1.y, x - point1.x, y - point1.y);
@@ -492,28 +501,26 @@ void RegionOfInterest(int event, int x, int y, int flags, void* userdata)
 		drag = 0;
 	}
 
-	if (event == cv::EVENT_LBUTTONUP)
-	{
+	if (event == cv::EVENT_LBUTTONUP) {
 		/* ROI selected */
 		drag = 0;
 	}
 }
 
 // Fonction pour determiner les coefficients du polynome de x = f(y)
-void polyfit(const Mat& src_x, const Mat& src_y, Mat& dst, int order)
-{
-	CV_Assert((src_x.rows > 0) && (src_y.rows > 0) && (src_x.cols == 1) && (src_y.cols == 1)
-		&& (dst.cols == 1) && (dst.rows == (order + 1)) && (order >= 1));
+void polyfit(const Mat& src_x, const Mat& src_y, Mat& dst, int order) {
+	CV_Assert((src_x.rows > 0) && (src_y.rows > 0) && (src_x.cols == 1) && (src_y.cols == 1) && (dst.cols == 1) && (dst.rows == (order + 1)) && (order >= 1));
 	Mat X;
 	X = Mat::zeros(src_x.rows, order + 1, CV_32FC1);
 	Mat copy;
-	for (int i = 0; i <= order; i++)
-	{
+
+	for (int i = 0; i <= order; i++) {
 		copy = src_x.clone();
 		pow(copy, i, copy);
 		Mat M1 = X.col(i);
 		copy.col(0).copyTo(M1);
 	}
+
 	Mat X_t, X_inv;
 	transpose(X, X_t);
 	Mat temp = X_t * X;
