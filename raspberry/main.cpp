@@ -326,7 +326,7 @@ int main(int argc, char** argv) {
     }
 
 		// Affichage des fenetres et calcul des coordonnes des lignes
-		vector<Rect> center(n_win);
+		vector<Point2f> center(n_win);
     int nc = 0;
     for (nw = 1; nw < n_win; nw++) {
       for (s = 0; s < 2; s++) {
