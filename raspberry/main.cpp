@@ -13,6 +13,11 @@
   #include "liaison.h"
 #endif
 
+#define LIDAR 0
+#ifdef LIDAR
+  #include "lidar.h"
+#endif
+
 using namespace cv;
 using namespace std;
 
@@ -78,7 +83,16 @@ int main(int argc, char** argv) {
       return 1;
     }
     else {
-      printf("Comport opened\n");
+      printf("Arduino initialized\n");
+    }
+  }
+
+  if (LIDAR == 1) {
+    if (Lidar_Initialize() == 1) {
+      return 1;
+    }
+    else {
+      printf("Lidar initialized\n");
     }
   }
 
@@ -412,9 +426,15 @@ int main(int argc, char** argv) {
     // Override
     pwr = 1500;
 
+    // Verification LIDAR
+    if (LIDAR == 1) {
+      Lidar_CheckObstacles(&dir, &pwr);
+      Lidar_Shutdown();
+    }
+
     // Envoi de la commande a l'arduino
     if (LIAISON == 1) {
-      Liaison_SendData(dir,pwr);
+      Liaison_SendData(dir, pwr);
     }
 
     /* WARPBACK */
@@ -447,6 +467,11 @@ int main(int argc, char** argv) {
     }
 
 	}
+
+  // Exctinction LIDAR
+  if (LIDAR == 1) {
+    Lidar_Shutdown();
+  }
 
 	cout << "Fin de capture" << endl;
 	return 0;

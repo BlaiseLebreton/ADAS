@@ -1,0 +1,221 @@
+#include "CYdLidar.h"
+#include <iostream>
+#include <string>
+#include <algorithm>
+#include <cctype>
+#include <opencv2/core.hpp>
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/videoio.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/plot.hpp>
+#include <unistd.h>
+#include <math.h>
+
+using namespace std;
+using namespace ydlidar;
+using namespace cv;
+
+#if defined(_MSC_VER)
+#pragma comment(lib, "ydlidar_driver.lib")
+#endif
+
+CYdLidar laser;
+int WIDTH = 800;
+int SCALE = WIDTH/(8.0*2.0);
+Mat data = Mat::zeros(Size(WIDTH, WIDTH), CV_8UC3);
+Mat plot_result;
+int sx,sy,cx,cy,lx,rx,psid=0,type,dist;
+float R,Rs,Ro,R_i,R_e,E=0.3,L=0.2,psi,Ro_m;
+Point P_m;
+int Lidar_Initialize() {
+  std::string port;
+  ydlidar::init(argc, argv);
+
+  std::map<std::string, std::string> ports = ydlidar::YDlidarDriver::lidarPortList();
+  std::map<std::string, std::string>::iterator it;
+
+  if (ports.size() == 1) {
+    port = ports.begin()->second;
+  } else {
+    int id = 0;
+
+    for (it = ports.begin(); it != ports.end(); it++) {
+      printf("%d. %s\n", id, it->first.c_str());
+      id++;
+    }
+
+    if (ports.empty()) {
+      printf("Not Lidar was detected. Please enter the lidar serial port:");
+      std::cin >> port;
+    } else {
+      while (ydlidar::ok()) {
+        printf("Please select the lidar port:");
+        std::string number;
+        std::cin >> number;
+
+        if ((size_t)atoi(number.c_str()) >= ports.size()) {
+          continue;
+        }
+
+        it = ports.begin();
+        id = atoi(number.c_str());
+
+        while (id) {
+          id--;
+          it++;
+        }
+
+        port = it->second;
+        break;
+      }
+    }
+  }
+
+
+  if (!ydlidar::ok()) {
+    return 0;
+  }
+
+  laser.setSerialPort(port);
+  laser.setSerialBaudrate(115200);
+  laser.setFixedResolution(false);
+  laser.setReversion(false);
+  laser.setInverted(false);
+  laser.setAutoReconnect(true);
+  laser.setSingleChannel(true);
+  laser.setLidarType(TYPE_TOF);
+  laser.setMaxAngle(180);
+  laser.setMinAngle(-180);
+  laser.setMinRange(0.1);
+  laser.setMaxRange(8.0);
+  laser.setScanFrequency(8.0);
+
+  std::vector<float> ignore_array;
+  ignore_array.clear();
+  laser.setIgnoreArray(ignore_array);
+
+  bool ret = laser.initialize();
+
+  if (ret) {
+    ret = laser.turnOn();
+  }
+
+  // Window
+  namedWindow("LIDAR Datas",  WINDOW_NORMAL);
+  resizeWindow("LIDAR Datas", WIDTH, WIDTH);
+
+  // Trackbar
+  createTrackbar("Angle braquage", "LIDAR Datas", &psid,  90);
+  setTrackbarMin("Angle braquage", "LIDAR Datas",       -90);
+
+  return 0;
+}
+
+
+int Lidar_CheckObstacles(int* cmd, int* pwr)
+    if (!ydlidar::ok()) {
+      return 1;
+    }
+
+    bool hardError;
+    LaserScan scan;
+    data = 0;
+
+    // A calculer avec cmd
+    psi = psid;
+
+    // Type ligne droite (1) ou arc de cercle (0)
+    type = abs(psi) < 0.1 ? 1 : 0;
+
+    if (type == 1) {
+      lx = WIDTH/2 - L/2*SCALE;
+      rx = WIDTH/2 + L/2*SCALE;
+    }
+    else {
+      R = E/cos((90-psi)*2*M_PI/360.0); // calcul de rayon de la trajectoire en fonction de l'empattement et de rayon de braquage
+
+      if (psi > 0) {
+        R_i = abs(R - (L/2));
+        R_e = abs(R + (L/2));
+      }
+      else {
+        R_i = abs(R + (L/2));
+        R_e = abs(R - (L/2));
+      }
+
+      cy = WIDTH/2;
+      cx = WIDTH/2 - R*SCALE;
+    }
+
+    if (laser.doProcessSimple(scan, hardError)) {
+      Ro_m = HUGE_VALF;
+      P_m  = Point(WIDTH/2, WIDTH/2);
+      for(int i = 0; i < scan.points.size(); i++) {
+
+        scan.points[i].range = scan.points[i].range / 4;
+        sx = round(scan.points[i].range*SCALE*cos(scan.points[i].angle+M_PI/2.0)) + WIDTH/2;
+        sy = round(scan.points[i].range*SCALE*sin(scan.points[i].angle+M_PI/2.0)) + WIDTH/2;
+
+        // Green by default
+        data.at<Vec3b>(sy, sx) = Vec3b(0,255,0);
+
+        if (type == 1) {
+          if (sx >= lx && sx <= rx) {
+            data.at<Vec3b>(sy, sx) = Vec3b(0,0,255);
+          }
+        }
+        else {
+          Rs = sqrtf((sx-cx)*(sx-cx) + (sy-cy)*(sy-cy)) / SCALE;
+
+          // Red if in trajectory
+          if (Rs >= R_i && Rs <= R_e) {
+            data.at<Vec3b>(sy, sx) = Vec3b(0,0,255);
+          }
+        }
+
+        // Green if behind
+        if (sy >= WIDTH/2) {
+          data.at<Vec3b>(sy, sx) = Vec3b(0,255,0);
+        }
+
+        // Closest obstacle
+        Ro = HUGE_VALF;
+        if (data.at<Vec3b>(sy, sx) == Vec3b(0,0,255)) {
+          Ro = scan.points[i].range;
+          if (Ro < Ro_m) {
+            Ro_m = Ro;
+            P_m  = Point(sx, sy);
+          }
+        }
+
+      }
+      printf("%f\n",Ro_m);
+      line(data, Point(WIDTH/2, WIDTH/2), P_m, Scalar(255,255,255), 1);
+    }
+    else {
+      fprintf(stderr, "Failed to get Lidar Data\n");
+      fflush(stderr);
+    }
+
+    if (type == 1) {
+      line(data, Point(WIDTH/2, WIDTH), Point(WIDTH/2, 0), Scalar(0,     0, 255), 1, LINE_8); // Red
+      line(data, Point(lx ,     WIDTH), Point(lx,      0), Scalar(0,   255,   0), 1, LINE_8); // Green
+      line(data, Point(rx,      WIDTH), Point(rx,      0), Scalar(255,   0,   0), 1, LINE_8); // Blue
+    }
+    else {
+      circle(data, Point(cx, cy), abs(R  *SCALE), Scalar(0,     0, 255), 1, LINE_8); // Red
+      circle(data, Point(cx, cy),     R_i*SCALE,  Scalar(0,   255,   0), 1, LINE_8); // Green
+      circle(data, Point(cx, cy),     R_e*SCALE,  Scalar(255,   0,   0), 1, LINE_8); // Blue
+    }
+
+    imshow("LIDAR Datas", data);
+  }
+
+  return 0;
+}
+
+int Lidar_Shutdown() {
+  laser.turnOff();
+  laser.disconnecting();
+}
