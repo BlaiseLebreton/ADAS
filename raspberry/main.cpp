@@ -67,7 +67,7 @@ int dir = 0;
 int pwr = 0;
 
 // images pour traitement
-Mat raw, warp, crop, hsv, sobel, slid, warpback;
+Mat raw, warp, crop, hsv, sobel, slid;
 vector<Mat> hsv_chan(3);
 
 int main(int argc, char** argv) {
@@ -343,7 +343,6 @@ int main(int argc, char** argv) {
       if(slid_win[0][nw].detected && slid_win[1][nw].detected){
         center[nc].x = (float)(slid_win[1][nw].lane.x + slid_win[0][nw].lane.x) / 2;
         center[nc].y = (float)(slid_win[1][nw].lane.y + slid_win[0][nw].lane.y) / 2;
-        // circle(warp, Point(center[nc].x, center[nc].y), 2, Scalar(0, 0, 255), FILLED, 8, 0);
         nc++;
       }
     }
@@ -417,6 +416,14 @@ int main(int argc, char** argv) {
     if (LIAISON == 1) {
       Liaison_SendData(dir,pwr);
     }
+
+    /* WARPBACK */
+    vector<Point2f> center_raw(n_win);
+    perspectiveTransform(center, center_raw, hinv);
+    for (int n = 0; n < nc; n++) {
+      circle(raw, center_raw[n], THICK, Scalar(255, 255, 255), FILLED, 8, 0);
+    }
+
 
     /* AFFICHAGE */
 
