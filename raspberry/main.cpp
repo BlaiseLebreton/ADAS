@@ -213,7 +213,7 @@ int main(int argc, char** argv)
 		GaussianBlur(crop, crop, Size(3, 3), 0, 0, BORDER_DEFAULT);
 
 		// Conversion en HSV
-    cvtColor(crop, hsv, cv::COLOR_BGR2HSV);
+    cvtColor(crop, hsv, COLOR_BGR2HSV);
 
     // Separation canaux
     split(hsv, hsv_chan);
@@ -334,7 +334,7 @@ int main(int argc, char** argv)
 
         if(slid_win[s][nw].detected){
           rectangle(slid, slid_win[s][nw].rect, Scalar(0, 255, 0), THICK);
-          circle(warp, slid_win[s][nw].lane, THICK, Scalar(255, 255, 255), cv::FILLED, 8, 0);
+          circle(warp, slid_win[s][nw].lane, THICK, Scalar(255, 255, 255), FILLED, 8, 0);
         }
         else{
           rectangle(slid, slid_win[s][nw].rect, Scalar(0, 0, 255), THICK);
@@ -344,7 +344,7 @@ int main(int argc, char** argv)
       if(slid_win[0][nw].detected && slid_win[1][nw].detected){
         center[nc].x = (float)(slid_win[1][nw].lane.x + slid_win[0][nw].lane.x) / 2;
         center[nc].y = (float)(slid_win[1][nw].lane.y + slid_win[0][nw].lane.y) / 2;
-        // circle(warp, Point(center[nc].x, center[nc].y), 2, Scalar(0, 0, 255), cv::FILLED, 8, 0);
+        // circle(warp, Point(center[nc].x, center[nc].y), 2, Scalar(0, 0, 255), FILLED, 8, 0);
         nc++;
       }
     }
@@ -470,8 +470,8 @@ void LineAlignement(int event, int x, int y, int flags, void* userdata) {
 			// 	pts_dst.at(j).y = (warp_factor - 1) * raw.rows + pts_src.at(j).y;
 			// }
 
-			h    = cv::findHomography(pts_src, pts_dst);
-			hinv = cv::findHomography(pts_dst, pts_src);
+			h    = findHomography(pts_src, pts_dst);
+			hinv = findHomography(pts_dst, pts_src);
 		}
 		i++;
 		if (i > 3) {
@@ -483,13 +483,13 @@ void LineAlignement(int event, int x, int y, int flags, void* userdata) {
 // Callback pour calcul de la region traitee
 void RegionOfInterest(int event, int x, int y, int flags, void* userdata) {
   // LMB clicked. ROI selection begins
-	if (event == cv::EVENT_LBUTTONDOWN && !drag) {
+	if (event == EVENT_LBUTTONDOWN && !drag) {
 		point1 = Point(x, y);
 		drag = 1;
 	}
 
   // LMB released. ROI end selection
-	if (event == cv::EVENT_LBUTTONUP && drag) {
+	if (event == EVENT_LBUTTONUP && drag) {
     point2 = Point(x, y);
 		if (x - point1.x > 0 && y - point1.y > 0)
 			myROI = Rect(point1.x, point1.y, x - point1.x, y - point1.y);
@@ -501,7 +501,7 @@ void RegionOfInterest(int event, int x, int y, int flags, void* userdata) {
 		drag = 0;
 	}
 
-	if (event == cv::EVENT_LBUTTONUP) {
+	if (event == EVENT_LBUTTONUP) {
 		/* ROI selected */
 		drag = 0;
 	}
