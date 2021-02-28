@@ -107,7 +107,7 @@ int Lidar_Initialize() {
 
   // Trackbar
   createTrackbar("Angle braquage", "LIDAR Datas", &psid,  90);
-  setTrackbarMin("Angle braquage", "LIDAR Datas",       -90);
+  setTrackbarMin("Angle braquage", "LIDAR Datas",        -90);
 
   return 0;
 }
@@ -122,7 +122,7 @@ int Lidar_CheckObstacles(int* cmd, int* pwr)
     LaserScan scan;
     data = 0;
 
-    // A calculer avec cmd
+    // TODO: A calculer avec (*cmd)
     psi = psid;
 
     // Type ligne droite (1) ou arc de cercle (0)
