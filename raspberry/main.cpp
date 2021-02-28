@@ -70,12 +70,11 @@ int pwr = 0;
 Mat raw, warp, crop, hsv, sobel, slid, warpback;
 vector<Mat> hsv_chan(3);
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
   setUseOptimized(1);
 
   if (LIAISON == 1) {
-    if (Liaison_Initialize() == 1){
+    if (Liaison_Initialize() == 1) {
       return 1;
     }
     else {
@@ -83,7 +82,8 @@ int main(int argc, char** argv)
     }
   }
 
-	Mat grad_x; // derivee de l'intensite selon x
+  // Derivee de l'intensite selon x
+	Mat grad_x;
 
 	// Filtre de sobel
 	double vmin, vmax;
@@ -98,7 +98,7 @@ int main(int argc, char** argv)
 	// Temps d'execution
 	double start,stop, dt;
 
-	//--- Initialisation de la camera et lecture d'une frame
+	// Initialisation de la camera et lecture d'une frame
   VideoCapture cap;
 	if (argc == 1) {
     int apiID = CAP_ANY;
@@ -108,6 +108,7 @@ int main(int argc, char** argv)
         break;
       }
     }
+
 		//Definition de la resolution
 		cap.set(CAP_PROP_FRAME_WIDTH,  640);
 		cap.set(CAP_PROP_FRAME_HEIGHT, 360);
@@ -158,7 +159,7 @@ int main(int argc, char** argv)
 
   // Callback
   setMouseCallback("Warp", RegionOfInterest, NULL);
-  setMouseCallback("Raw",  LineAlignement, NULL);
+  setMouseCallback("Raw",  LineAlignement,   NULL);
 
   // Redimensionnement
 	resizeWindow("Raw",            640,               360);
@@ -262,8 +263,7 @@ int main(int argc, char** argv)
     for (nw = 0; nw < n_win; nw++) {
       for (s = 0; s < 2; s++) {
 
-
-        // Partie gauche de la frame
+        // Selection de la sous-region
         roi = sobel(slid_win[s][nw].rect);
         sumxi = 0; sumi = 0; n = 0;
 
@@ -277,7 +277,6 @@ int main(int argc, char** argv)
             }
           }
         }
-
 
         // Si il y a assez de points, on place la fenetre sur le x moyen
         if (n > min_points) {
