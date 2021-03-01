@@ -8,7 +8,7 @@
 #include <time.h>
 #include <math.h>
 
-#define LIAISON 0
+#define LIAISON 1
 #ifdef LIAISON
   #include "liaison.h"
 #endif
@@ -26,7 +26,7 @@ void RegionOfInterest(int event, int x, int y, int flags, void* userdata);
 void polyfit(const Mat& src_x, const Mat& src_y, Mat& dst, int order);
 
 #define THICK 1
-#define DEBUG 2
+#define DEBUG 1
 
 // Warping
 int i = 0; // indice du point de warping
@@ -36,7 +36,7 @@ vector<Point2f> pts_dst; // point transformes sur la frame warp
 Mat h, hinv; // matrice de passage raw -> warp et warp -> raw
 
 // Region of interest
-Rect myROI(74, 144, 171, 87); // region traitee
+Rect myROI(44, 56, 232, 170); // region traitee
 Point point1, point2; // utilises pour la definition de cette region
 int drag = 0;
 
@@ -44,7 +44,7 @@ int drag = 0;
 int scale = 2; // facteur pour "boost" l'intensite
 int delta = 0;
 int ddepth = CV_16S;
-int threshold_sobel = 30; // filtre
+int threshold_sobel = 160; // filtre
 
 // Sliding windows
 int n_win = 10; // nombre de fenetres
@@ -65,9 +65,10 @@ int posy;
 int posx;
 double curr_error = 0.0;
 double prev_error = 0.0;
-double kp = 1.0;
-double ki = 0.0;
-double kd = 0.0;
+int kp = 1.0;
+int ki = 0.0;
+int kd = 0.0;
+double kpd = 1.0;
 int dir = 0;
 int pwr = 0;
 
@@ -133,10 +134,10 @@ int main(int argc, char** argv) {
 	}
 
 	// Calculate Homography
-	pts_src.push_back(Point2f(3, 129));
-	pts_src.push_back(Point2f(102, 79));
-	pts_src.push_back(Point2f(315, 130));
-	pts_src.push_back(Point2f(221, 80));
+	pts_src.push_back(Point2f(7,  83));
+	pts_src.push_back(Point2f(81, 35));
+	pts_src.push_back(Point2f(315, 81));
+	pts_src.push_back(Point2f(250, 36));
 
   // Perspective transformee : Lignes deviennent verticales
 	pts_dst.push_back(Point2f(pts_src.at(1).x, 0));
@@ -158,7 +159,7 @@ int main(int argc, char** argv) {
 	namedWindow("Raw",            WINDOW_NORMAL);
 	namedWindow("Warp",           WINDOW_NORMAL);
 	namedWindow("Sliding window", WINDOW_NORMAL);
-	//namedWindow("PID",            WINDOW_NORMAL);
+	namedWindow("PID",            WINDOW_NORMAL);
 
   // Creation callback / trackbar
   createTrackbar("Seuil",   "Sliding window", &threshold_sobel,      255);
@@ -167,9 +168,9 @@ int main(int argc, char** argv) {
   createTrackbar("MinPix",  "Sliding window", &min_points,          1000);
   createTrackbar("Posy",    "Warp",           &posy,            raw.rows);
   createTrackbar("Posx",    "Warp",           &posx,            raw.cols);
-  //createTrackbar("Kp",      "PID",            &kp,                   100);
-  //createTrackbar("Ki",      "PID",            &ki,                   100);
-  //createTrackbar("Kd",      "PID",            &kd,                   100);
+  createTrackbar("Kp",      "PID",            &kp,                   100);
+  createTrackbar("Ki",      "PID",            &ki,                   100);
+  createTrackbar("Kd",      "PID",            &kd,                   100);
 
   // Callback
   setMouseCallback("Warp", RegionOfInterest, NULL);
@@ -208,7 +209,7 @@ int main(int argc, char** argv) {
     start = getTickCount();
 
 		// Rotation 180°
-    flip(raw, raw, 0);
+    // flip(raw, raw, 0);
 
 
 		// Transformation en bird view
@@ -228,13 +229,15 @@ int main(int argc, char** argv) {
 		GaussianBlur(crop, crop, Size(3, 3), 0, 0, BORDER_DEFAULT);
 
 		// Conversion en HSV
-    cvtColor(crop, hsv, COLOR_BGR2HSV);
+    // cvtColor(crop, hsv, COLOR_BGR2GRAY);
+    // cvtColor(crop, hsv, COLOR_BGR2HSV);
+    hsv = crop;
 
     // Separation canaux
     split(hsv, hsv_chan);
 
 		// Filtre de Sobel
-		Sobel(hsv_chan[0], grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
+		Sobel(hsv_chan[1], grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
 		convertScaleAbs(grad_x, sobel);
 
 		// Mise a l'echelle de la frame
@@ -411,7 +414,8 @@ int main(int argc, char** argv) {
     curr_error = xligne - posx;
 
     // Calcul de la commande
-		dir = kp*curr_error + ki*curr_error*dt + kd*(curr_error - prev_error)/dt;
+    kpd = kp/10.0;
+		dir = kpd*curr_error + ki*curr_error*dt + kd*(curr_error - prev_error)/dt;
     putText(warp, to_string(dir), Point(warp.cols/2,yligne-5*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
 		pwr = 1.0/coef.at<float>(2, 0);
 		if (pwr < 0)
@@ -423,14 +427,14 @@ int main(int argc, char** argv) {
     dir = min(max(-90,  dir),   90);
     pwr = min(max(1300, pwr), 1800);
 
-    // Override
-    pwr = 1500;
 
     // Verification LIDAR
     if (LIDAR == 1) {
       Lidar_CheckObstacles(&dir, &pwr);
-      Lidar_Shutdown();
     }
+
+    // Override
+    pwr = 1500;
 
     // Envoi de la commande a l'arduino
     if (LIAISON == 1) {
@@ -460,7 +464,7 @@ int main(int argc, char** argv) {
 		imshow("Raw",             raw);
 		imshow("Warp",           warp);
 		imshow("Sliding window", slid);
-		//imshow("PID",               0);
+		imshow("PID",               0);
 
 		if (waitKey(1) == 27) {
       break; // stop capturing by pressing ESC

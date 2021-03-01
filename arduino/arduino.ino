@@ -14,7 +14,7 @@ typedef struct{ // recu
 
 typedef struct{
   Servo s;
-  float k = 0.35;
+  float k = 0.3;
   int off = 90;
 }servo;
 
@@ -43,12 +43,9 @@ void setup() {
 String incomingByte;
 char test[25];
 int i;
+int mycmd;
 
 void loop() {
-
-  // Commande raspberry par défaut
-  rasp.pwr = 1500;
-  rasp.dir = 0;
 
   // Commande receiver
   recv.pwr = 0;
@@ -101,7 +98,7 @@ void loop() {
   }
 
   // Application direction si pas d'outrepassement receiver
-  if (abs(recv.dir) < 25) {
+  if (abs(recv.dir) < 45) {
     ServoDir.s.write(ServoDir.k*rasp.dir+ServoDir.off);
   }
   else {
@@ -109,10 +106,12 @@ void loop() {
   }
 
   // Application de la commande si pas d'outrepassement receiver
-  if (recv.pwr > 1250) {
-    ServoPwr.writeMicroseconds(rasp.pwr);
-  }
-  else {
-    ServoPwr.writeMicroseconds(1500); // Emergency stop
-  }
+  // if (recv.pwr > 1250) {
+  //   ServoPwr.writeMicroseconds(rasp.pwr);
+  // }
+  // else {
+  //   ServoPwr.writeMicroseconds(1500); // Emergency stop
+  // }
+    mycmd = recv.pwr;
+    ServoPwr.writeMicroseconds(mycmd); // Commande
 }
