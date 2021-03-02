@@ -8,7 +8,7 @@
 #include <time.h>
 #include <math.h>
 
-#define LIAISON 1
+#define LIAISON 0
 #ifdef LIAISON
   #include "liaison.h"
 #endif
@@ -17,6 +17,8 @@
 #ifdef LIDAR
   #include "lidar.h"
 #endif
+
+#define NLIGNE 1
 
 using namespace cv;
 using namespace std;
@@ -255,11 +257,11 @@ int main(int argc, char** argv) {
 
     // A utiliser plutot que gauche/droite et parametrer le 2
     vector <vector<Window>> slid_win;
-    slid_win.resize(2, vector<Window>(n_win));
+    slid_win.resize(NLIGNE, vector<Window>(n_win));
 
     // Definition de la hauteur et largeur des fenetres
     for (nw = 0; nw < n_win; nw++) {
-      for (s = 0; s < 2; s++) {
+      for (s = 0; s < NLIGNE; s++) {
         if (nw == 0)
           slid_win[s][nw].rect.height = sobel.rows - (n_win-1)*floor(sobel.rows/n_win);
         else
@@ -269,16 +271,17 @@ int main(int argc, char** argv) {
     }
 
 		// Placement de la premiere fenetre
-    for (s = 0; s < 2; s++) {
-      slid_win[s][0].rect.width = sobel.cols / 2;
+    for (s = 0; s < NLIGNE; s++) {
+      slid_win[s][0].rect.width = sobel.cols / NLIGNE;
       slid_win[s][0].rect.y     = sobel.rows - slid_win[0][0].rect.height;
+
+      slid_win[s][0].rect.x = s * sobel.cols / NLIGNE;
     }
-		slid_win[0][0].rect.x = 0;
-		slid_win[1][0].rect.x = sobel.cols / 2;
 
 		// Parcours de toute les fenetres
     for (nw = 0; nw < n_win; nw++) {
-      for (s = 0; s < 2; s++) {
+      for (s = 0; s < NLIGNE; s++) {
+
 
         // Selection de la sous-region
         roi = sobel(slid_win[s][nw].rect);
@@ -312,17 +315,13 @@ int main(int argc, char** argv) {
         // Sinon on augmente la zone de recherche pour la fenetre suivante
         else {
           slid_win[s][nw].detected = false;
-
           if (nw - 1 > 0){
             slid_win[s][nw].lane.x = slid_win[s][nw-1].lane.x;
-            slid_win[s][nw].lane.y = slid_win[s][nw-1].lane.y - slid_win[1][nw-1].rect.height;
+            slid_win[s][nw].lane.y = slid_win[s][nw-1].lane.y - slid_win[0][nw-1].rect.height;
           }
           if (nw + 1 < n_win){
-            if (s == 0)
-              slid_win[s][nw + 1].rect.x = 0;
-            else
-              slid_win[s][nw + 1].rect.x = slid.cols / 2;
-            slid_win[s][nw + 1].rect.width = slid.cols / 2;
+            slid_win[s][nw + 1].rect.x = s * slid.cols / NLIGNE;
+            slid_win[s][nw + 1].rect.width = slid.cols / NLIGNE;
           }
         }
 
@@ -334,7 +333,7 @@ int main(int argc, char** argv) {
     }
 
     // Affichage puis desactivation de la premiere fenetre (car position erronee)
-    for (s = 0; s < 2; s++) {
+    for (s = 0; s < NLIGNE; s++) {
       if (slid_win[s][0].detected)
         rectangle(slid, slid_win[s][0].rect, Scalar(255, 0, 0), THICK);
       else
@@ -345,8 +344,14 @@ int main(int argc, char** argv) {
 		// Affichage des fenetres et calcul des coordonnes des lignes
 		vector<Point2f> center(n_win);
     int nc = 0;
+    bool AllDetected;
     for (nw = 1; nw < n_win; nw++) {
-      for (s = 0; s < 2; s++) {
+
+      AllDetected = true;
+      center[nc].x = 0;
+      center[nc].y = 0;
+
+      for (s = 0; s < NLIGNE; s++) {
 
         if(slid_win[s][nw].detected){
           rectangle(slid, slid_win[s][nw].rect, Scalar(0, 255, 0), THICK);
@@ -355,13 +360,17 @@ int main(int argc, char** argv) {
         else{
           rectangle(slid, slid_win[s][nw].rect, Scalar(0, 0, 255), THICK);
         }
+        AllDetected = AllDetected && slid_win[s][nw].detected;
+        center[nc].x += (float)(slid_win[s][nw].lane.x);
+        center[nc].y += (float)(slid_win[s][nw].lane.y);
       }
 
-      if(slid_win[0][nw].detected && slid_win[1][nw].detected){
-        center[nc].x = (float)(slid_win[1][nw].lane.x + slid_win[0][nw].lane.x) / 2;
-        center[nc].y = (float)(slid_win[1][nw].lane.y + slid_win[0][nw].lane.y) / 2;
+      if (AllDetected) {
+        center[nc].x = center[nc].x / NLIGNE;
+        center[nc].y = center[nc].y / NLIGNE;
         nc++;
       }
+
     }
 
     /* CALCUL DE L'EQUATION DE LA ROUTE x = f(y) */
