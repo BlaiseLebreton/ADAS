@@ -8,12 +8,12 @@
 #include <time.h>
 #include <math.h>
 
-#define LIAISON 1
+#define LIAISON 0
 #ifdef LIAISON
   #include "liaison.h"
 #endif
 
-#define LIDAR 0
+#define LIDAR 1
 #ifdef LIDAR
   #include "lidar.h"
 #endif
@@ -426,7 +426,7 @@ int main(int argc, char** argv) {
     kpd = kp/10.0;
 		dir = kpd*curr_error + ki*curr_error*dt + kd*(curr_error - prev_error)/dt;
     prev_error = curr_error;
-    pwr = 1650;
+    pwr = 1660;
 
     // Bornage
     dir = min(max(-90,  dir),   90);
