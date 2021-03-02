@@ -161,18 +161,17 @@ int main(int argc, char** argv) {
   // Creation des fenetres
 	namedWindow("Raw",   WINDOW_NORMAL);
 	namedWindow("Warp",  WINDOW_NORMAL);
-	namedWindow("Sobel", WINDOW_NORMAL);
 
   // Creation callback / trackbar
-  createTrackbar("Seuil",   "Sobel", &threshold_sobel,      255);
-  createTrackbar("Nombre",  "Warp",  &n_win,                 50);
-  createTrackbar("Largeur", "Warp",  &win_width,            100);
-  createTrackbar("MinPix",  "Warp",  &min_points,          1000);
-  createTrackbar("Posy",    "Warp",  &posy,            raw.rows);
-  createTrackbar("Posx",    "Warp",  &posx,            raw.cols);
-  createTrackbar("Kp",      "Raw",   &kp,                   100);
-  createTrackbar("Ki",      "Raw",   &ki,                   100);
-  createTrackbar("Kd",      "Raw",   &kd,                   100);
+  createTrackbar("Seuil",   "Warp", &threshold_sobel,      255);
+  createTrackbar("Nombre",  "Warp", &n_win,                 50);
+  createTrackbar("Largeur", "Warp", &win_width,            100);
+  createTrackbar("MinPix",  "Warp", &min_points,          1000);
+  createTrackbar("Posy",    "Warp", &posy,            raw.rows);
+  createTrackbar("Posx",    "Warp", &posx,            raw.cols);
+  createTrackbar("Kp",      "Raw",  &kp,                   100);
+  createTrackbar("Ki",      "Raw",  &ki,                   100);
+  createTrackbar("Kd",      "Raw",  &kd,                   100);
 
   // Callback
   setMouseCallback("Warp", RegionOfInterest, NULL);
@@ -181,7 +180,6 @@ int main(int argc, char** argv) {
   // Redimensionnement
   resizeWindow("Raw",   640,               360);
 	resizeWindow("Warp",  640, warp_factor * 360);
-	resizeWindow("Sobel", 640, warp_factor * 360);
 
   // Definition des points de bases du PID
 	posx = raw.cols/2;
@@ -216,10 +214,8 @@ int main(int argc, char** argv) {
 
 		// Transformation en bird view
     warpPerspective(raw, warp, h, Size(raw.cols, warp_factor * raw.rows));
-		line(raw,  Point(pts_src.at(0)), Point(pts_src.at(1)), Scalar(255,0,0));
-		line(raw,  Point(pts_src.at(2)), Point(pts_src.at(3)), Scalar(255,0,0));
-		// line(warp, Point(pts_dst.at(0)), Point(pts_dst.at(1)), Scalar(255,0,0));
-		// line(warp, Point(pts_dst.at(2)), Point(pts_dst.at(3)), Scalar(255,0,0));
+		line(raw,  Point(pts_src.at(0)), Point(pts_src.at(1)), Scalar(255,0,0), THICK);
+		line(raw,  Point(pts_src.at(2)), Point(pts_src.at(3)), Scalar(255,0,0), THICK);
 
 		// Crop de la frame
 		crop = warp(myROI);
@@ -249,7 +245,6 @@ int main(int argc, char** argv) {
 
 		// Seuillage a zero
 		threshold(sobel, sobel, threshold_sobel, 255, 3);
-
 
     /* ALGORITHME DES FENETRES GLISSANTES */
 
@@ -328,6 +323,11 @@ int main(int argc, char** argv) {
       }
     }
 
+    // Affichage dans l'image en bird view
+    cvtColor(sobel, sobel, COLOR_GRAY2BGR);
+    sobel.copyTo(warp(Rect(myROI.x, myROI.y, sobel.cols, sobel.rows)));
+
+
     // Affichage puis desactivation de la premiere fenetre (car position erronee)
     for (s = 0; s < NLIGNE; s++) {
       MyRect = slid_win[s][0].rect;
@@ -401,7 +401,7 @@ int main(int argc, char** argv) {
   		}
       Mat curve(curvePoints, true);
       curve.convertTo(curve, CV_32S);
-      polylines(warp, curve, false, Scalar(255, 255, 255), 1, LINE_AA);
+      polylines(warp, curve, false, Scalar(0, 255, 255), THICK, LINE_AA);
     }
 
 
@@ -468,10 +468,8 @@ int main(int argc, char** argv) {
     putText(raw, to_string((int)(1/dt)) + "Hz", Point(10,15), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
 
 		// Frames et creation callback/trackbar
-		imshow("Raw",   raw);
+    imshow("Raw",   raw);
 		imshow("Warp",  warp);
-    hconcat(inSobel, sobel, slid);
-		imshow("Sobel", slid);
 
 		if (waitKey(1) == 27) {
       break; // stop capturing by pressing ESC
