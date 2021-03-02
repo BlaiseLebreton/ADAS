@@ -8,7 +8,7 @@
 #include <time.h>
 #include <math.h>
 
-#define LIAISON 0
+#define LIAISON 1
 #ifdef LIAISON
   #include "liaison.h"
 #endif
@@ -27,8 +27,8 @@ void LineAlignement(int event, int x, int y, int flags, void* userdata);
 void RegionOfInterest(int event, int x, int y, int flags, void* userdata);
 void polyfit(const Mat& src_x, const Mat& src_y, Mat& dst, int order);
 
-#define THICK 1
-#define DEBUG 1
+#define THICK 2
+#define DEBUG 2
 
 // Warping
 int i = 0; // indice du point de warping
@@ -38,7 +38,7 @@ vector<Point2f> pts_dst; // point transformes sur la frame warp
 Mat h, hinv; // matrice de passage raw -> warp et warp -> raw
 
 // Region of interest
-Rect myROI(44, 56, 232, 170); // region traitee
+Rect myROI(76, 120, 150, 117); // region traitee
 Point point1, point2; // utilises pour la definition de cette region
 int drag = 0;
 
@@ -46,11 +46,11 @@ int drag = 0;
 int scale = 2; // facteur pour "boost" l'intensite
 int delta = 0;
 int ddepth = CV_16S;
-int threshold_sobel = 160; // filtre
+int threshold_sobel = 50; // filtre
 
 // Sliding windows
 int n_win = 10; // nombre de fenetres
-int win_width = 30; // largeur en px d'une fenetre
+int win_width = 50; // largeur en px d'une fenetre
 int min_points = 0; // nombre minimum de points dans la fenetre
 int degre = 2; // degre du polynome pour relier x = f(y)
 struct Window{
@@ -67,10 +67,10 @@ int posy;
 int posx;
 double curr_error = 0.0;
 double prev_error = 0.0;
-int kp = 1.0;
+int kp = 30.0;
 int ki = 0.0;
 int kd = 0.0;
-double kpd = 1.0;
+double kpd = 3.0;
 int dir = 0;
 int pwr = 0;
 
@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
 
 	// Sliding windows
 	Mat roi;
-	int xc, sumxi, sumi, n;
+	int sumxi, sumi, n;
 
 	// Loops
 	int c, nw, r, s;
@@ -136,10 +136,10 @@ int main(int argc, char** argv) {
 	}
 
 	// Calculate Homography
-	pts_src.push_back(Point2f(7,  83));
-	pts_src.push_back(Point2f(81, 35));
-	pts_src.push_back(Point2f(315, 81));
-	pts_src.push_back(Point2f(250, 36));
+	pts_src.push_back(Point2f(10, 233));
+	pts_src.push_back(Point2f(86, 85));
+	pts_src.push_back(Point2f(314, 233));
+	pts_src.push_back(Point2f(218, 87));
 
   // Perspective transformee : Lignes deviennent verticales
 	pts_dst.push_back(Point2f(pts_src.at(1).x, 0));
@@ -239,7 +239,8 @@ int main(int argc, char** argv) {
     split(hsv, hsv_chan);
 
 		// Filtre de Sobel
-		Sobel(hsv_chan[1], grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
+    //imshow("Filte", hsv_chan[0]);
+		Sobel(hsv_chan[0], grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
 		convertScaleAbs(grad_x, sobel);
 
 		// Mise a l'echelle de la frame
@@ -298,26 +299,25 @@ int main(int argc, char** argv) {
           }
         }
 
+        slid_win[s][nw].detected = false;
+
         // Si il y a assez de points, on place la fenetre sur le x moyen
         if (n > min_points) {
           slid_win[s][nw].detected = true;
           slid_win[s][nw].lane.x = myROI.x + slid_win[s][nw].rect.x + sumxi / sumi;
           slid_win[s][nw].lane.y = myROI.y + slid_win[s][nw].rect.y + slid_win[s][nw].rect.height / 2;
           if (nw + 1 < n_win){
-            xc = slid_win[s][nw].rect.x + sumxi / sumi - win_width / 2;
-            if (s == 0)
-              xc = (xc > 0) ? xc : 0;
-            else
-              xc = (xc + win_width < sobel.cols) ? xc : sobel.cols - win_width;
-            slid_win[s][nw + 1].rect.x = xc;
+            slid_win[s][nw + 1].rect.x = slid_win[s][nw].rect.x + sumxi / sumi - win_width / 2;
+            if ((slid_win[s][nw + 1].rect.x < 0) || (slid_win[s][nw + 1].rect.x + win_width > sobel.cols)) {
+              slid_win[s][nw].detected = false;
+            }
           }
         }
         // Sinon on augmente la zone de recherche pour la fenetre suivante
-        else {
-          slid_win[s][nw].detected = false;
+        if (!slid_win[s][nw].detected){
           if (nw - 1 > 0){
             slid_win[s][nw].lane.x = slid_win[s][nw-1].lane.x;
-            slid_win[s][nw].lane.y = slid_win[s][nw-1].lane.y - slid_win[0][nw-1].rect.height;
+            slid_win[s][nw].lane.y = slid_win[s][nw-1].lane.y - slid_win[s][nw-1].rect.height;
           }
           if (nw + 1 < n_win){
             slid_win[s][nw + 1].rect.x = s * slid.cols / NLIGNE;
@@ -425,12 +425,8 @@ int main(int argc, char** argv) {
     // Calcul de la commande
     kpd = kp/10.0;
 		dir = kpd*curr_error + ki*curr_error*dt + kd*(curr_error - prev_error)/dt;
-    putText(warp, to_string(dir), Point(warp.cols/2,yligne-5*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
-		pwr = 1.0/coef.at<float>(2, 0);
-		if (pwr < 0)
-			pwr = -pwr;
-		putText(warp, to_string(pwr), Point(warp.cols/2,yligne-25*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
     prev_error = curr_error;
+    pwr = 1650;
 
     // Bornage
     dir = min(max(-90,  dir),   90);
@@ -441,9 +437,6 @@ int main(int argc, char** argv) {
     if (LIDAR == 1) {
       Lidar_CheckObstacles(&dir, &pwr);
     }
-
-    // Override
-    pwr = 1500;
 
     // Envoi de la commande a l'arduino
     if (LIAISON == 1) {
@@ -463,6 +456,10 @@ int main(int argc, char** argv) {
     // Ligne d'erreur
 		line(raw, Point(0, pts_src.at(0).y), Point(raw.cols, pts_src.at(0).y), Scalar(255,0,0), THICK);
 		line(raw, Point(0, pts_src.at(1).y), Point(raw.cols, pts_src.at(1).y), Scalar(255,0,0), THICK);
+
+    // Commande actuelle
+    putText(warp, to_string(dir), Point(warp.cols/2,yligne-5*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
+		putText(warp, to_string(pwr), Point(warp.cols/2,yligne-25*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
 
     // Frequence de traitement
     stop = getTickCount();
