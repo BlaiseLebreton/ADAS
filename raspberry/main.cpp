@@ -8,7 +8,7 @@
 #include <time.h>
 #include <math.h>
 
-#define LIAISON 1
+#define LIAISON 0
 #ifdef LIAISON
   #include "liaison.h"
 #endif
@@ -75,7 +75,7 @@ int dir = 0;
 int pwr = 0;
 
 // images pour traitement
-Mat raw, warp, crop, hsv, sobel, slid;
+Mat raw, warp, crop, hsv, inSobel, sobel, slid;
 vector<Mat> hsv_chan(3);
 
 int main(int argc, char** argv) {
@@ -108,6 +108,7 @@ int main(int argc, char** argv) {
 	// Sliding windows
 	Mat roi;
 	int sumxi, sumi, n;
+  Rect MyRect;
 
 	// Loops
 	int c, nw, r, s;
@@ -158,30 +159,29 @@ int main(int argc, char** argv) {
 	hinv = findHomography(pts_dst, pts_src);
 
   // Creation des fenetres
-	namedWindow("Raw",            WINDOW_NORMAL);
-	namedWindow("Warp",           WINDOW_NORMAL);
-	namedWindow("Sliding window", WINDOW_NORMAL);
-	namedWindow("PID",            WINDOW_NORMAL);
+	namedWindow("Raw",   WINDOW_NORMAL);
+	namedWindow("Warp",  WINDOW_NORMAL);
+	namedWindow("Sobel", WINDOW_NORMAL);
 
   // Creation callback / trackbar
-  createTrackbar("Seuil",   "Sliding window", &threshold_sobel,      255);
-  createTrackbar("Nombre",  "Sliding window", &n_win,                 50);
-  createTrackbar("Largeur", "Sliding window", &win_width,            100);
-  createTrackbar("MinPix",  "Sliding window", &min_points,          1000);
-  createTrackbar("Posy",    "Warp",           &posy,            raw.rows);
-  createTrackbar("Posx",    "Warp",           &posx,            raw.cols);
-  createTrackbar("Kp",      "PID",            &kp,                   100);
-  createTrackbar("Ki",      "PID",            &ki,                   100);
-  createTrackbar("Kd",      "PID",            &kd,                   100);
+  createTrackbar("Seuil",   "Sobel", &threshold_sobel,      255);
+  createTrackbar("Nombre",  "Warp",  &n_win,                 50);
+  createTrackbar("Largeur", "Warp",  &win_width,            100);
+  createTrackbar("MinPix",  "Warp",  &min_points,          1000);
+  createTrackbar("Posy",    "Warp",  &posy,            raw.rows);
+  createTrackbar("Posx",    "Warp",  &posx,            raw.cols);
+  createTrackbar("Kp",      "Raw",   &kp,                   100);
+  createTrackbar("Ki",      "Raw",   &ki,                   100);
+  createTrackbar("Kd",      "Raw",   &kd,                   100);
 
   // Callback
   setMouseCallback("Warp", RegionOfInterest, NULL);
   setMouseCallback("Raw",  LineAlignement,   NULL);
 
   // Redimensionnement
-	resizeWindow("Raw",            640,               360);
-	resizeWindow("Warp",           640, warp_factor * 360);
-	resizeWindow("Sliding window", 640, warp_factor * 360);
+  resizeWindow("Raw",   640,               360);
+	resizeWindow("Warp",  640, warp_factor * 360);
+	resizeWindow("Sobel", 640, warp_factor * 360);
 
   // Definition des points de bases du PID
 	posx = raw.cols/2;
@@ -237,10 +237,10 @@ int main(int argc, char** argv) {
 
     // Separation canaux
     split(hsv, hsv_chan);
+    inSobel = hsv_chan[0];
 
 		// Filtre de Sobel
-    //imshow("Filte", hsv_chan[0]);
-		Sobel(hsv_chan[0], grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
+		Sobel(inSobel, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
 		convertScaleAbs(grad_x, sobel);
 
 		// Mise a l'echelle de la frame
@@ -253,10 +253,7 @@ int main(int argc, char** argv) {
 
     /* ALGORITHME DES FENETRES GLISSANTES */
 
-    //conversion en couleur pour representation des fenetres
-		cvtColor(sobel, slid, COLOR_GRAY2BGR);
-
-    // A utiliser plutot que gauche/droite et parametrer le 2
+    // Creation des fenetres
     vector <vector<Window>> slid_win;
     slid_win.resize(NLIGNE, vector<Window>(n_win));
 
@@ -273,16 +270,15 @@ int main(int argc, char** argv) {
 
 		// Placement de la premiere fenetre
     for (s = 0; s < NLIGNE; s++) {
-      slid_win[s][0].rect.width = sobel.cols / NLIGNE;
-      slid_win[s][0].rect.y     = sobel.rows - slid_win[0][0].rect.height;
+      slid_win[s][0].rect.width =     sobel.cols / NLIGNE;
+      slid_win[s][0].rect.x     = s * sobel.cols / NLIGNE;
+      slid_win[s][0].rect.y     =     sobel.rows - slid_win[0][0].rect.height;
 
-      slid_win[s][0].rect.x = s * sobel.cols / NLIGNE;
     }
 
 		// Parcours de toute les fenetres
     for (nw = 0; nw < n_win; nw++) {
       for (s = 0; s < NLIGNE; s++) {
-
 
         // Selection de la sous-region
         roi = sobel(slid_win[s][nw].rect);
@@ -320,8 +316,8 @@ int main(int argc, char** argv) {
             slid_win[s][nw].lane.y = slid_win[s][nw-1].lane.y - slid_win[s][nw-1].rect.height;
           }
           if (nw + 1 < n_win){
-            slid_win[s][nw + 1].rect.x = s * slid.cols / NLIGNE;
-            slid_win[s][nw + 1].rect.width = slid.cols / NLIGNE;
+            slid_win[s][nw + 1].rect.x = s * sobel.cols / NLIGNE;
+            slid_win[s][nw + 1].rect.width = sobel.cols / NLIGNE;
           }
         }
 
@@ -334,10 +330,13 @@ int main(int argc, char** argv) {
 
     // Affichage puis desactivation de la premiere fenetre (car position erronee)
     for (s = 0; s < NLIGNE; s++) {
+      MyRect = slid_win[s][0].rect;
+      MyRect.x += myROI.x;
+      MyRect.y += myROI.y;
       if (slid_win[s][0].detected)
-        rectangle(slid, slid_win[s][0].rect, Scalar(255, 0, 0), THICK);
+        rectangle(warp, MyRect, Scalar(255, 0, 0), THICK);
       else
-        rectangle(slid, slid_win[s][0].rect, Scalar(0, 0, 255), THICK);
+        rectangle(warp, MyRect, Scalar(0, 0, 255), THICK);
       slid_win[s][0].detected = false;
     }
 
@@ -353,12 +352,14 @@ int main(int argc, char** argv) {
 
       for (s = 0; s < NLIGNE; s++) {
 
+        MyRect = slid_win[s][nw].rect;
+        MyRect.x += myROI.x;
+        MyRect.y += myROI.y;
         if(slid_win[s][nw].detected){
-          rectangle(slid, slid_win[s][nw].rect, Scalar(0, 255, 0), THICK);
-          circle(warp, slid_win[s][nw].lane, THICK, Scalar(255, 255, 255), FILLED, 8, 0);
+          rectangle(warp, MyRect, Scalar(0, 255, 0), THICK);
         }
         else{
-          rectangle(slid, slid_win[s][nw].rect, Scalar(0, 0, 255), THICK);
+          rectangle(warp, MyRect, Scalar(0, 0, 255), THICK);
         }
         AllDetected = AllDetected && slid_win[s][nw].detected;
         center[nc].x += (float)(slid_win[s][nw].lane.x);
@@ -467,10 +468,10 @@ int main(int argc, char** argv) {
     putText(raw, to_string((int)(1/dt)) + "Hz", Point(10,15), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
 
 		// Frames et creation callback/trackbar
-		imshow("Raw",             raw);
-		imshow("Warp",           warp);
-		imshow("Sliding window", slid);
-		imshow("PID",               0);
+		imshow("Raw",   raw);
+		imshow("Warp",  warp);
+    hconcat(inSobel, sobel, slid);
+		imshow("Sobel", slid);
 
 		if (waitKey(1) == 27) {
       break; // stop capturing by pressing ESC
