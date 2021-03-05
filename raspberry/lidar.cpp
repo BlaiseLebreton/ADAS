@@ -26,9 +26,9 @@ int SCALE = WIDTH/(8.0*2.0);
 Mat data = Mat::zeros(Size(WIDTH, WIDTH), CV_8UC3);
 Mat plot_result;
 int sx,sy,cx,cy,lx,rx,psid=0,type,dist;
-float R,Rs,R_i,R_e,E=0.3,L=0.2,psi,Ro_m;
+float R,Rs,R_i,R_e,E=0.3,L=0.3,psi,Ro_m;
 Point P_m;
-int Lidar_Initialize() {
+int Lidar_Initialize(int DISPLAY) {
   std::string port;
   int ac;
   char* av[3];
@@ -104,13 +104,15 @@ int Lidar_Initialize() {
     ret = laser.turnOn();
   }
 
-  // Window
-  namedWindow("LIDAR Datas",  WINDOW_NORMAL);
-  resizeWindow("LIDAR Datas", WIDTH, WIDTH);
+  if (DISPLAY) {
+    // Window
+    namedWindow("LIDAR Datas",  WINDOW_NORMAL);
+    resizeWindow("LIDAR Datas", WIDTH, WIDTH);
 
-  // Trackbar
-  createTrackbar("Angle braquage", "LIDAR Datas", &psid,  90);
-  setTrackbarMin("Angle braquage", "LIDAR Datas",        -90);
+    // Trackbar
+    createTrackbar("Angle braquage", "LIDAR Datas", &psid,  90);
+    setTrackbarMin("Angle braquage", "LIDAR Datas",        -90);
+  }
 
   // Test get data
   bool hardError;
@@ -124,7 +126,7 @@ int Lidar_Initialize() {
   return 0;
 }
 
-int Lidar_CheckObstacles(int* cmd, int* pwr) {
+float Lidar_CheckObstacles(int* cmd, int* pwr, int DISPLAY) {
   if (!ydlidar::ok()) {
     return 1;
   }
@@ -171,11 +173,13 @@ int Lidar_CheckObstacles(int* cmd, int* pwr) {
       sy = scan.points[i].range*SCALE*sin(scan.points[i].angle+M_PI/2.0) + WIDTH/2;
 
       // Green by default
-      data.at<Vec3b>(sy, sx) = Vec3b(0,255,0);
+      if (DISPLAY)
+        data.at<Vec3b>(sy, sx) = Vec3b(0,255,0);
 
       if (type == 1) {
         if (sx >= lx && sx <= rx) {
-          data.at<Vec3b>(round(sy), round(sx)) = Vec3b(0,0,255);
+          if (DISPLAY)
+            data.at<Vec3b>(round(sy), round(sx)) = Vec3b(0,0,255);
           IsObstacle = true;
         }
       }
@@ -184,14 +188,16 @@ int Lidar_CheckObstacles(int* cmd, int* pwr) {
 
         // Red if in trajectory
         if (Rs >= R_i && Rs <= R_e) {
-          data.at<Vec3b>(round(sy), round(sx)) = Vec3b(0,0,255);
+          if (DISPLAY)
+            data.at<Vec3b>(round(sy), round(sx)) = Vec3b(0,0,255);
           IsObstacle = true;
         }
       }
 
       // Green if behind
       if (sy >= WIDTH/2) {
-        data.at<Vec3b>(round(sy), round(sx)) = Vec3b(0,255,0);
+        if (DISPLAY)
+          data.at<Vec3b>(round(sy), round(sx)) = Vec3b(0,255,0);
         IsObstacle = false;
       }
 
@@ -209,26 +215,28 @@ int Lidar_CheckObstacles(int* cmd, int* pwr) {
     if (Ro_m <= 0.4){
       *pwr = 1500;
     }
-    line(data, Point(WIDTH/2, WIDTH/2), P_m, Scalar(255,255,255), 1);
+    if (DISPLAY)
+      line(data, Point(WIDTH/2, WIDTH/2), P_m, Scalar(255,255,255), 1);
   }
   else {
     fprintf(stderr, "Failed to get Lidar Data\n");
     fflush(stderr);
   }
+  if (DISPLAY) {
+    if (type == 1) {
+      line(data, Point(WIDTH/2, WIDTH), Point(WIDTH/2, 0), Scalar(0,     0, 255), 1, LINE_8); // Red
+      line(data, Point(lx ,     WIDTH), Point(lx,      0), Scalar(0,   255,   0), 1, LINE_8); // Green
+      line(data, Point(rx,      WIDTH), Point(rx,      0), Scalar(255,   0,   0), 1, LINE_8); // Blue
+    }
+    else {
+      circle(data, Point(cx, cy), abs(R  *SCALE), Scalar(0,     0, 255), 1, LINE_8); // Red
+      circle(data, Point(cx, cy),     R_i*SCALE,  Scalar(0,   255,   0), 1, LINE_8); // Green
+      circle(data, Point(cx, cy),     R_e*SCALE,  Scalar(255,   0,   0), 1, LINE_8); // Blue
+    }
 
-  if (type == 1) {
-    line(data, Point(WIDTH/2, WIDTH), Point(WIDTH/2, 0), Scalar(0,     0, 255), 1, LINE_8); // Red
-    line(data, Point(lx ,     WIDTH), Point(lx,      0), Scalar(0,   255,   0), 1, LINE_8); // Green
-    line(data, Point(rx,      WIDTH), Point(rx,      0), Scalar(255,   0,   0), 1, LINE_8); // Blue
+    imshow("LIDAR Datas", data);
   }
-  else {
-    circle(data, Point(cx, cy), abs(R  *SCALE), Scalar(0,     0, 255), 1, LINE_8); // Red
-    circle(data, Point(cx, cy),     R_i*SCALE,  Scalar(0,   255,   0), 1, LINE_8); // Green
-    circle(data, Point(cx, cy),     R_e*SCALE,  Scalar(255,   0,   0), 1, LINE_8); // Blue
-  }
-
-  imshow("LIDAR Datas", data);
-  return 0;
+  return Ro_m;
 }
 
 int Lidar_Shutdown() {

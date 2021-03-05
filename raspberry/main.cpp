@@ -8,7 +8,7 @@
 #include <time.h>
 #include <math.h>
 
-#define LIAISON 0
+#define LIAISON 1
 #ifdef LIAISON
   #include "liaison.h"
 #endif
@@ -18,6 +18,7 @@
   #include "lidar.h"
 #endif
 
+#define DISPLAY 0
 #define NLIGNE 1
 
 using namespace cv;
@@ -38,7 +39,7 @@ vector<Point2f> pts_dst; // point transformes sur la frame warp
 Mat h, hinv; // matrice de passage raw -> warp et warp -> raw
 
 // Region of interest
-Rect myROI(76, 120, 150, 117); // region traitee
+Rect myROI(76, 39, 158, 193); // region traitee
 Point point1, point2; // utilises pour la definition de cette region
 int drag = 0;
 
@@ -46,7 +47,8 @@ int drag = 0;
 int scale = 2; // facteur pour "boost" l'intensite
 int delta = 0;
 int ddepth = CV_16S;
-int threshold_sobel = 50; // filtre
+//int threshold_sobel = 50; // filtre (Maison)
+int threshold_sobel = 110; // filtre (Salle info)
 
 // Sliding windows
 int n_win = 10; // nombre de fenetres
@@ -91,7 +93,7 @@ int main(int argc, char** argv) {
   }
 
   if (LIDAR == 1) {
-    if (Lidar_Initialize() == 1) {
+    if (Lidar_Initialize(DISPLAY) == 1) {
       return 1;
     }
     else {
@@ -110,8 +112,11 @@ int main(int argc, char** argv) {
 	int sumxi, sumi, n;
   Rect MyRect;
 
-	// Loops
-	int c, nw, r, s;
+  // Loops
+  int c, nw, r, s;
+
+  // Lidar closest obstacle
+  float Ro_m;
 
 	// Temps d'execution
 	double start,stop, dt;
@@ -137,10 +142,10 @@ int main(int argc, char** argv) {
 	}
 
 	// Calculate Homography
-	pts_src.push_back(Point2f(10, 233));
-	pts_src.push_back(Point2f(86, 85));
-	pts_src.push_back(Point2f(314, 233));
-	pts_src.push_back(Point2f(218, 87));
+	pts_src.push_back(Point2f(9, 235));
+	pts_src.push_back(Point2f(139, 86));
+	pts_src.push_back(Point2f(291, 237));
+	pts_src.push_back(Point2f(208, 87));
 
   // Perspective transformee : Lignes deviennent verticales
 	pts_dst.push_back(Point2f(pts_src.at(1).x, 0));
@@ -158,32 +163,34 @@ int main(int argc, char** argv) {
 	h    = findHomography(pts_src, pts_dst);
 	hinv = findHomography(pts_dst, pts_src);
 
-  // Creation des fenetres
-	namedWindow("Raw",   WINDOW_NORMAL);
-	namedWindow("Warp",  WINDOW_NORMAL);
-
-  // Creation callback / trackbar
-  createTrackbar("Seuil",   "Warp", &threshold_sobel,      255);
-  createTrackbar("Nombre",  "Warp", &n_win,                 50);
-  createTrackbar("Largeur", "Warp", &win_width,            100);
-  createTrackbar("MinPix",  "Warp", &min_points,          1000);
-  createTrackbar("Posy",    "Warp", &posy,            raw.rows);
-  createTrackbar("Posx",    "Warp", &posx,            raw.cols);
-  createTrackbar("Kp",      "Raw",  &kp,                   100);
-  createTrackbar("Ki",      "Raw",  &ki,                   100);
-  createTrackbar("Kd",      "Raw",  &kd,                   100);
-
-  // Callback
-  setMouseCallback("Warp", RegionOfInterest, NULL);
-  setMouseCallback("Raw",  LineAlignement,   NULL);
-
-  // Redimensionnement
-  resizeWindow("Raw",   640,               360);
-	resizeWindow("Warp",  640, warp_factor * 360);
-
   // Definition des points de bases du PID
-	posx = raw.cols/2;
-	posy = raw.rows/4;
+  posx = raw.cols/2;
+  posy = raw.rows/4;
+
+  if (DISPLAY == 1) {
+    // Creation des fenetres
+    namedWindow("Raw",   WINDOW_NORMAL);
+    namedWindow("Warp",  WINDOW_NORMAL);
+
+    // Creation callback / trackbar
+    createTrackbar("Seuil",   "Warp", &threshold_sobel,      255);
+    createTrackbar("Nombre",  "Warp", &n_win,                 50);
+    createTrackbar("Largeur", "Warp", &win_width,            100);
+    createTrackbar("MinPix",  "Warp", &min_points,          1000);
+    createTrackbar("Posy",    "Warp", &posy,            raw.rows);
+    createTrackbar("Posx",    "Warp", &posx,            raw.cols);
+    createTrackbar("Kp",      "Raw",  &kp,                   100);
+    createTrackbar("Ki",      "Raw",  &ki,                   100);
+    createTrackbar("Kd",      "Raw",  &kd,                   100);
+
+    // Callback
+    setMouseCallback("Warp", RegionOfInterest, NULL);
+    setMouseCallback("Raw",  LineAlignement,   NULL);
+
+    // Redimensionnement
+    resizeWindow("Raw",   640,               360);
+    resizeWindow("Warp",  640, warp_factor * 360);
+  }
 
 	// Debut du traitement temps reel
 	cout << "Debut de capture" << endl;
@@ -208,14 +215,12 @@ int main(int argc, char** argv) {
     // Calcul du temps d'execution
     start = getTickCount();
 
-		// Rotation 180°
-    // flip(raw, raw, 0);
-
-
 		// Transformation en bird view
     warpPerspective(raw, warp, h, Size(raw.cols, warp_factor * raw.rows));
-		line(raw,  Point(pts_src.at(0)), Point(pts_src.at(1)), Scalar(255,0,0), THICK);
-		line(raw,  Point(pts_src.at(2)), Point(pts_src.at(3)), Scalar(255,0,0), THICK);
+    if (DISPLAY == 1) {
+      line(raw,  Point(pts_src.at(0)), Point(pts_src.at(1)), Scalar(255,0,0), THICK);
+      line(raw,  Point(pts_src.at(2)), Point(pts_src.at(3)), Scalar(255,0,0), THICK);
+    }
 
 		// Crop de la frame
 		crop = warp(myROI);
@@ -227,13 +232,21 @@ int main(int argc, char** argv) {
 		GaussianBlur(crop, crop, Size(3, 3), 0, 0, BORDER_DEFAULT);
 
 		// Conversion en HSV
-    // cvtColor(crop, hsv, COLOR_BGR2GRAY);
-    // cvtColor(crop, hsv, COLOR_BGR2HSV);
-    hsv = crop;
+    //cvtColor(crop, hsv, COLOR_BGR2GRAY);
+    // cvtColor(crop, hsv, COLOR_BGR2HSV); // Maison
+    // cvtColor(crop, hsv, COLOR_BGR2YUV); // Maison
+    hsv = crop; // Salle info
 
     // Separation canaux
     split(hsv, hsv_chan);
-    inSobel = hsv_chan[0];
+
+    //inSobel = hsv;
+    inSobel = hsv_chan[2]; // Maison
+    //inSobel = hsv_chan[0]; // Salle info
+
+    //imshow("0", hsv_chan[0]);
+    //imshow("1", hsv_chan[1]);
+    //imshow("2", hsv_chan[2]);
 
 		// Filtre de Sobel
 		Sobel(inSobel, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
@@ -324,19 +337,22 @@ int main(int argc, char** argv) {
     }
 
     // Affichage dans l'image en bird view
-    cvtColor(sobel, sobel, COLOR_GRAY2BGR);
-    sobel.copyTo(warp(Rect(myROI.x, myROI.y, sobel.cols, sobel.rows)));
-
+    if (DISPLAY == 1) {
+      cvtColor(sobel, sobel, COLOR_GRAY2BGR);
+      sobel.copyTo(warp(Rect(myROI.x, myROI.y, sobel.cols, sobel.rows)));
+    }
 
     // Affichage puis desactivation de la premiere fenetre (car position erronee)
     for (s = 0; s < NLIGNE; s++) {
-      MyRect = slid_win[s][0].rect;
-      MyRect.x += myROI.x;
-      MyRect.y += myROI.y;
-      if (slid_win[s][0].detected)
-        rectangle(warp, MyRect, Scalar(255, 0, 0), THICK);
-      else
-        rectangle(warp, MyRect, Scalar(0, 0, 255), THICK);
+      if (DISPLAY == 1) {
+        MyRect = slid_win[s][0].rect;
+        MyRect.x += myROI.x;
+        MyRect.y += myROI.y;
+        if (slid_win[s][0].detected)
+          rectangle(warp, MyRect, Scalar(255, 0, 0), THICK);
+        else
+          rectangle(warp, MyRect, Scalar(0, 0, 255), THICK);
+      }
       slid_win[s][0].detected = false;
     }
 
@@ -352,14 +368,16 @@ int main(int argc, char** argv) {
 
       for (s = 0; s < NLIGNE; s++) {
 
-        MyRect = slid_win[s][nw].rect;
-        MyRect.x += myROI.x;
-        MyRect.y += myROI.y;
-        if(slid_win[s][nw].detected){
-          rectangle(warp, MyRect, Scalar(0, 255, 0), THICK);
-        }
-        else{
-          rectangle(warp, MyRect, Scalar(0, 0, 255), THICK);
+        if (DISPLAY == 1) {
+          MyRect = slid_win[s][nw].rect;
+          MyRect.x += myROI.x;
+          MyRect.y += myROI.y;
+          if(slid_win[s][nw].detected){
+            rectangle(warp, MyRect, Scalar(0, 255, 0), THICK);
+          }
+          else{
+            rectangle(warp, MyRect, Scalar(0, 0, 255), THICK);
+          }
         }
         AllDetected = AllDetected && slid_win[s][nw].detected;
         center[nc].x += (float)(slid_win[s][nw].lane.x);
@@ -390,18 +408,20 @@ int main(int argc, char** argv) {
   		polyfit(src_x, src_y, coef, degre);
 
       // Affichage de la ligne resultante
-      vector<Point2f> curvePoints;
-      int x = 0;
-  		for (int y = warp_factor * warp.rows; y > 0; y--) {
-        x = 0;
-  		  for (int n = 0; n <= degre; n++) {
-  		 		x += coef.at<float>(n, 0) * pow(y, n);
-  		 	}
-        curvePoints.push_back(Point2f(x, y));
-  		}
-      Mat curve(curvePoints, true);
-      curve.convertTo(curve, CV_32S);
-      polylines(warp, curve, false, Scalar(0, 255, 255), THICK, LINE_AA);
+      if (DISPLAY == 1) {
+        vector<Point2f> curvePoints;
+        int x = 0;
+        for (int y = warp_factor * warp.rows; y > 0; y--) {
+          x = 0;
+          for (int n = 0; n <= degre; n++) {
+            x += coef.at<float>(n, 0) * pow(y, n);
+          }
+          curvePoints.push_back(Point2f(x, y));
+        }
+        Mat curve(curvePoints, true);
+        curve.convertTo(curve, CV_32S);
+        polylines(warp, curve, false, Scalar(0, 255, 255), THICK, LINE_AA);
+      }
     }
 
 
@@ -413,21 +433,26 @@ int main(int argc, char** argv) {
 
     // Affichage de la ligne
     int yligne = warp.rows - posy;
-    line(warp, Point(posx, warp.rows), Point(posx, yligne), Scalar(255,0,0), THICK);
+    if (DISPLAY == 1) {
+      line(warp, Point(posx, warp.rows), Point(posx, yligne), Scalar(255,0,0), THICK);
+    }
 
     // Calcul de l'erreur
     int xligne = 0;
 	  for (int n = 0; n <= degre; n++) {
 	 		xligne += coef.at<float>(n, 0) * pow(yligne, n);
 	 	}
-    line(warp, Point(posx, warp.rows - posy), Point(xligne, yligne), Scalar(0,0,255), THICK);
+
+    if (DISPLAY == 1) {
+      line(warp, Point(posx, warp.rows - posy), Point(xligne, yligne), Scalar(0,0,255), THICK);
+    }
     curr_error = xligne - posx;
 
     // Calcul de la commande
     kpd = kp/10.0;
 		dir = kpd*curr_error + ki*curr_error*dt + kd*(curr_error - prev_error)/dt;
     prev_error = curr_error;
-    pwr = 1660;
+    pwr = 1670;
 
     // Bornage
     dir = min(max(-90,  dir),   90);
@@ -436,7 +461,7 @@ int main(int argc, char** argv) {
 
     // Verification LIDAR
     if (LIDAR == 1) {
-      Lidar_CheckObstacles(&dir, &pwr);
+      Ro_m = Lidar_CheckObstacles(&dir, &pwr, DISPLAY);
     }
 
     // Envoi de la commande a l'arduino
@@ -445,35 +470,53 @@ int main(int argc, char** argv) {
     }
 
     /* WARPBACK */
-    vector<Point2f> center_raw(n_win);
-    perspectiveTransform(center, center_raw, hinv);
-    for (int n = 0; n < nc; n++) {
-      circle(raw, center_raw[n], THICK, Scalar(255, 255, 255), FILLED, 8, 0);
+    if (DISPLAY == 1) {
+      vector<Point2f> center_raw(n_win);
+      perspectiveTransform(center, center_raw, hinv);
+      for (int n = 0; n < nc; n++) {
+        circle(raw, center_raw[n], THICK, Scalar(255, 255, 255), FILLED, 8, 0);
+      }
     }
 
 
     /* AFFICHAGE */
 
-    // Ligne d'erreur
-		line(raw, Point(0, pts_src.at(0).y), Point(raw.cols, pts_src.at(0).y), Scalar(255,0,0), THICK);
-		line(raw, Point(0, pts_src.at(1).y), Point(raw.cols, pts_src.at(1).y), Scalar(255,0,0), THICK);
+    if (DISPLAY == 1) {
+      // Ligne d'erreur
+      line(raw, Point(0, pts_src.at(0).y), Point(raw.cols, pts_src.at(0).y), Scalar(255,0,0), THICK);
+      line(raw, Point(0, pts_src.at(1).y), Point(raw.cols, pts_src.at(1).y), Scalar(255,0,0), THICK);
 
-    // Commande actuelle
-    putText(warp, to_string(dir), Point(warp.cols/2,yligne-5*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
-		putText(warp, to_string(pwr), Point(warp.cols/2,yligne-25*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
+      // Commande actuelle
+      putText(warp, to_string(dir), Point(warp.cols/2,yligne-5*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
+      putText(warp, to_string(pwr), Point(warp.cols/2,yligne-25*THICK), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
 
-    // Frequence de traitement
+      // Frequence de traitement
+      stop = getTickCount();
+      dt = ((stop - start)/ getTickFrequency());
+      putText(raw, to_string((int)(1/dt)) + "Hz", Point(10,15), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
+
+      // Frames et creation callback/trackbar
+      imshow("Raw",   raw);
+      imshow("Warp",  warp);
+
+      if (waitKey(1) == 27) {
+        break; // stop capturing by pressing ESC
+      }
+
+    }
+
+
     stop = getTickCount();
     dt = ((stop - start)/ getTickFrequency());
-    putText(raw, to_string((int)(1/dt)) + "Hz", Point(10,15), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
+    system("clear");
 
-		// Frames et creation callback/trackbar
-    imshow("Raw",   raw);
-		imshow("Warp",  warp);
+    printf("Frequency        : %d Hz\n", (int)(1/dt));
+    printf("LIDAR            : %d\n", LIDAR);
+    printf("Liaison          : %d\n", LIAISON);
 
-		if (waitKey(1) == 27) {
-      break; // stop capturing by pressing ESC
-    }
+    printf("Direction        : %d°\n", dir);
+    printf("Power            : %d\n", pwr);
+    printf("Closest obstacle : %.2f cm\n", Ro_m*100);
 
 	}
 
