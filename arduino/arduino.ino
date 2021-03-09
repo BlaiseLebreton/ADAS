@@ -3,6 +3,7 @@
 
 char inData[2];
 char inChar;
+int lastdir = 90;
 byte index = 0;
 
 //code test
@@ -43,7 +44,7 @@ void setup() {
 String incomingByte;
 char test[25];
 int i;
-int mycmd;
+int mycmd, moy, sum;
 
 void loop() {
 
@@ -56,6 +57,65 @@ void loop() {
   }
   recv.pwr = recv.pwr/(i-1);
   recv.dir = map(recv.dir/(i-1), 1000, 2000, -90, 90);
+
+
+
+  if (Serial.available()) { 
+    incomingByte = "";
+    while (Serial.available()) {
+      delay(2);
+      char c = (char)Serial.read();
+      incomingByte += c;
+    }
+
+    // Decoupage du message en deux (direction_power)
+    int passed=0,ci=0,pi=0;
+    char sdir[5]; char spwr[5];
+    for (int i = 0; i<incomingByte.length(); i++) {
+      if (incomingByte[i] == '_') {
+        passed = 1;
+      }
+      else {
+        if (passed == 0) {
+          sdir[ci] = incomingByte[i];
+          ci++;
+        }
+        else {
+          spwr[pi] = incomingByte[i];
+          pi++;
+        }
+      }
+    }
+    sdir[ci] = '\0';
+    spwr[pi] = '\0';
+
+    // // Validation reception
+    // sprintf(test, "%s_%s", sdir, spwr);
+    // Serial.write(test);
+
+    // Commande recue par la raspberry
+    rasp.dir = max(-90,  min(-atoi(sdir), 90));
+    rasp.pwr = max(1500, min( atoi(spwr), 1700));
+//    
+//    for (i = 0; i < 1; i++) {
+//      Dir[i] = Dir[i+1];
+//    }
+//    Dir[i] = rasp.dir;
+//    for (i = 0; i < 2; i++) {
+//      rasp.dir += Dir[i];
+//    }
+//    rasp.dir = rasp.dir/(i-1);
+
+     rasp.dir = lastdir + max(-30, min((rasp.dir - lastdir), 30));
+     
+     lastdir = rasp.dir;
+    
+  }
+
+
+
+
+
 
   // Application direction si pas d'outrepassement receiver
   if (abs(recv.dir) < 45) {
@@ -70,49 +130,15 @@ void loop() {
     ServoPwr.writeMicroseconds(rasp.pwr);
   }
   else {
-    ServoPwr.writeMicroseconds(1500); // Emergency stop
+    // ServoPwr.writeMicroseconds(1500); // Emergency stop
+    ServoPwr.writeMicroseconds(recv.pwr);
   }
-  //  ServoPwr.writeMicroseconds(recv.pwr);
 
 }
 
 // Commande raspberry
 void serialEvent() {
 
-  incomingByte = "";
-  while (Serial.available()) {
-    delay(2);
-    char c = (char)Serial.read();
-    incomingByte += c;
-  }
 
-  // Decoupage du message en deux (direction_power)
-  int passed=0,ci=0,pi=0;
-  char sdir[5]; char spwr[5];
-  for (int i = 0; i<incomingByte.length(); i++) {
-    if (incomingByte[i] == '_') {
-      passed = 1;
-    }
-    else {
-      if (passed == 0) {
-        sdir[ci] = incomingByte[i];
-        ci++;
-      }
-      else {
-        spwr[pi] = incomingByte[i];
-        pi++;
-      }
-    }
-  }
-  sdir[ci] = '\0';
-  spwr[pi] = '\0';
-
-  // // Validation reception
-  // sprintf(test, "%s_%s", sdir, spwr);
-  // Serial.write(test);
-
-  // Commande recue par la raspberry
-  rasp.dir = max(-90,  min(-atoi(sdir), 90));
-  rasp.pwr = max(1500, min( atoi(spwr), 1700));
 
 }

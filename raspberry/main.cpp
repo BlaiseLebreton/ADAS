@@ -18,7 +18,7 @@
   #include "lidar.h"
 #endif
 
-#define DISPLAY 0
+#define DISPLAY 1
 #define NLIGNE 1
 
 using namespace cv;
@@ -39,7 +39,7 @@ vector<Point2f> pts_dst; // point transformes sur la frame warp
 Mat h, hinv; // matrice de passage raw -> warp et warp -> raw
 
 // Region of interest
-Rect myROI(76, 39, 158, 193); // region traitee
+Rect myROI(39, 12, 215, 221); // region traitee
 Point point1, point2; // utilises pour la definition de cette region
 int drag = 0;
 
@@ -67,12 +67,7 @@ struct Window{
 // PID
 int posy;
 int posx;
-double curr_error = 0.0;
-double prev_error = 0.0;
-int kp = 30.0;
-int ki = 0.0;
-int kd = 0.0;
-double kpd = 3.0;
+double kp = 2.0;
 int dir = 0;
 int pwr = 0;
 
@@ -142,10 +137,10 @@ int main(int argc, char** argv) {
 	}
 
 	// Calculate Homography
-	pts_src.push_back(Point2f(9, 235));
-	pts_src.push_back(Point2f(139, 86));
-	pts_src.push_back(Point2f(291, 237));
-	pts_src.push_back(Point2f(208, 87));
+	pts_src.push_back(Point2f(6, 237));
+	pts_src.push_back(Point2f(68, 86));
+	pts_src.push_back(Point2f(292, 235));
+	pts_src.push_back(Point2f(222, 89));
 
   // Perspective transformee : Lignes deviennent verticales
 	pts_dst.push_back(Point2f(pts_src.at(1).x, 0));
@@ -164,7 +159,7 @@ int main(int argc, char** argv) {
 	hinv = findHomography(pts_dst, pts_src);
 
   // Definition des points de bases du PID
-  posx = raw.cols/2;
+  posx = raw.cols/2 + 15;
   posy = raw.rows/4;
 
   if (DISPLAY == 1) {
@@ -179,9 +174,6 @@ int main(int argc, char** argv) {
     createTrackbar("MinPix",  "Warp", &min_points,          1000);
     createTrackbar("Posy",    "Warp", &posy,            raw.rows);
     createTrackbar("Posx",    "Warp", &posx,            raw.cols);
-    createTrackbar("Kp",      "Raw",  &kp,                   100);
-    createTrackbar("Ki",      "Raw",  &ki,                   100);
-    createTrackbar("Kd",      "Raw",  &kd,                   100);
 
     // Callback
     setMouseCallback("Warp", RegionOfInterest, NULL);
@@ -195,7 +187,6 @@ int main(int argc, char** argv) {
 	// Debut du traitement temps reel
 	cout << "Debut de capture" << endl;
 	for(;;)	{
-
 
     /* RECUPERATION D'UNE FRAME */
 
@@ -216,7 +207,7 @@ int main(int argc, char** argv) {
     start = getTickCount();
 
 		// Transformation en bird view
-    warpPerspective(raw, warp, h, Size(raw.cols, warp_factor * raw.rows));
+    warpPerspective(raw, warp, h, Size(raw.cols, warp_factor * raw.rows), INTER_LINEAR, BORDER_REPLICATE);
     if (DISPLAY == 1) {
       line(raw,  Point(pts_src.at(0)), Point(pts_src.at(1)), Scalar(255,0,0), THICK);
       line(raw,  Point(pts_src.at(2)), Point(pts_src.at(3)), Scalar(255,0,0), THICK);
@@ -232,21 +223,30 @@ int main(int argc, char** argv) {
 		GaussianBlur(crop, crop, Size(3, 3), 0, 0, BORDER_DEFAULT);
 
 		// Conversion en HSV
-    //cvtColor(crop, hsv, COLOR_BGR2GRAY);
-    // cvtColor(crop, hsv, COLOR_BGR2HSV); // Maison
-    // cvtColor(crop, hsv, COLOR_BGR2YUV); // Maison
-    hsv = crop; // Salle info
+    //cvtColor(crop, hsv, COLOR_BGR2GRAY); // GRAY
+    //cvtColor(crop, hsv, COLOR_BGR2HSV);  // HSV
+    //cvtColor(crop, hsv, COLOR_BGR2YUV);  // YUV
+    hsv = crop;                            // RGB
+
+    //rbg : 1 et 2
+    //gray : meme qu'1 rgb
+    //hsv : h meme qu'1 rgb
+    //YUV : marche pas
 
     // Separation canaux
     split(hsv, hsv_chan);
 
-    //inSobel = hsv;
-    inSobel = hsv_chan[2]; // Maison
-    //inSobel = hsv_chan[0]; // Salle info
+    //inSobel = hsv;         // GRAY
+    inSobel = hsv_chan[1];   // RGB
+    //inSobel = hsv_chan[0]; // HSV
 
     //imshow("0", hsv_chan[0]);
     //imshow("1", hsv_chan[1]);
     //imshow("2", hsv_chan[2]);
+
+    if (DISPLAY == 1) {
+      imshow("Sobel", inSobel);
+    }
 
 		// Filtre de Sobel
 		Sobel(inSobel, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
@@ -396,7 +396,7 @@ int main(int argc, char** argv) {
 
     // Matrice des coefs
     Mat coef = Mat(degre + 1, 1, CV_32F);
-    if (nc > 0){
+    if (nc >= 3) {
 
       // Mise en forme des i/o
   		Mat src_x = Mat(nc, 1, CV_32F);
@@ -423,6 +423,12 @@ int main(int argc, char** argv) {
         polylines(warp, curve, false, Scalar(0, 255, 255), THICK, LINE_AA);
       }
     }
+    else {
+      for (int n = 0; n <= degre; n++) {
+        coef.at<float>(n, 0) = 0;
+      }
+      coef.at<float>(0, 0) = posx;
+    }
 
 
     /* PID */
@@ -439,19 +445,18 @@ int main(int argc, char** argv) {
 
     // Calcul de l'erreur
     int xligne = 0;
+    float dxligne = 0;
 	  for (int n = 0; n <= degre; n++) {
-	 		xligne += coef.at<float>(n, 0) * pow(yligne, n);
+	 		xligne  += coef.at<float>(n, 0)*pow(yligne, n  );
+      dxligne += coef.at<float>(n, 0)*pow(yligne, n-1)*(n-1);
 	 	}
 
     if (DISPLAY == 1) {
       line(warp, Point(posx, warp.rows - posy), Point(xligne, yligne), Scalar(0,0,255), THICK);
     }
-    curr_error = xligne - posx;
 
     // Calcul de la commande
-    kpd = kp/10.0;
-		dir = kpd*curr_error + ki*curr_error*dt + kd*(curr_error - prev_error)/dt;
-    prev_error = curr_error;
+		dir = kp*(xligne - posx);
     pwr = 1670;
 
     // Bornage
@@ -508,15 +513,20 @@ int main(int argc, char** argv) {
 
     stop = getTickCount();
     dt = ((stop - start)/ getTickFrequency());
-    system("clear");
 
-    printf("Frequency        : %d Hz\n", (int)(1/dt));
-    printf("LIDAR            : %d\n", LIDAR);
-    printf("Liaison          : %d\n", LIAISON);
+    if (DISPLAY == 0) {
+      system("clear");
 
-    printf("Direction        : %d°\n", dir);
-    printf("Power            : %d\n", pwr);
-    printf("Closest obstacle : %.2f cm\n", Ro_m*100);
+      printf("Frequency        : %d Hz\n", (int)(1/dt));
+      printf("LIDAR            : %d\n", LIDAR);
+      printf("Liaison          : %d\n", LIAISON);
+
+      printf("Direction        : %d°\n", dir);
+      printf("Power            : %d\n", pwr);
+      printf("Closest obstacle : %.2f cm\n", Ro_m*100);
+
+    }
+    printf("dxligne : %f\n", 1+dxligne);
 
 	}
 
