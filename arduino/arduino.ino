@@ -95,7 +95,7 @@ void loop() {
 
     // Commande recue par la raspberry
     rasp.dir = max(-90,  min(-atoi(sdir), 90));
-    rasp.pwr = max(1500, min( atoi(spwr), 1700));
+    rasp.pwr = max(1500, min( atoi(spwr), 1800));
 //    
 //    for (i = 0; i < 1; i++) {
 //      Dir[i] = Dir[i+1];

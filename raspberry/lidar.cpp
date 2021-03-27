@@ -22,7 +22,7 @@ using namespace cv;
 
 CYdLidar laser;
 int WIDTH = 250;
-int SCALE = WIDTH/(8.0*2.0);
+int SCALE = WIDTH/(8.0*1.0);
 Mat data = Mat::zeros(Size(WIDTH, WIDTH), CV_8UC3);
 Mat plot_result;
 int sx,sy,cx,cy,lx,rx,psid=0,type,dist;
@@ -104,7 +104,7 @@ int Lidar_Initialize(int DISPLAY) {
     ret = laser.turnOn();
   }
 
-  if (DISPLAY) {
+  if (DISPLAY == 1) {
     // Window
     namedWindow("LIDAR Datas",  WINDOW_NORMAL);
     resizeWindow("LIDAR Datas", WIDTH, WIDTH);
