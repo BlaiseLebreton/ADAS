@@ -23,7 +23,6 @@ int Liaison_Initialize() {
 
 int Liaison_SendData(int cmd, int pwr) {
   sprintf(str_send, "%d_%d", cmd, pwr);
-  int n;
   RS232_cputs(cport_nr, str_send);
   if (DEBUG > 1) {
     printf("Sent: '%s'\n", str_send);
