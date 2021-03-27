@@ -14,8 +14,7 @@ char str_send[BUF_SIZE];
 int Liaison_Initialize() {
   int bdrate=230400;
   char mode[]={'8','N','1',0};
-  if(RS232_OpenComport(cport_nr, bdrate, mode, 0))
-  {
+  if RS232_OpenComport(cport_nr, bdrate, mode, 0) {
     printf("Can not open comport\n");
     return 1;
   }
@@ -26,7 +25,8 @@ int Liaison_SendData(int cmd, int pwr) {
   sprintf(str_send, "%d_%d", cmd, pwr);
   int n;
   RS232_cputs(cport_nr, str_send);
-  if (DEBUG > 1)
-  printf("Sent: '%s'\n", str_send);
+  if (DEBUG > 1) {
+    printf("Sent: '%s'\n", str_send);
+  }
   return 0;
 }
