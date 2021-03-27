@@ -72,8 +72,8 @@ int dir = 0;
 int pwr = 0;
 
 // images pour traitement
-Mat raw, warp, crop, hsv, inSobel, sobel, slid;
-vector<Mat> hsv_chan(3);
+Mat raw, warp, crop, inSobel, sobel, slid;
+vector<Mat> crop_chan(3);
 
 int main(int argc, char** argv) {
   setUseOptimized(1);
@@ -219,30 +219,12 @@ int main(int argc, char** argv) {
 
     /* SOBEL */
 
-    // Reduction bruit
+    // Ajout bruit
     GaussianBlur(crop, crop, Size(3, 3), 0, 0, BORDER_DEFAULT);
 
-    // Conversion en HSV
-    //cvtColor(crop, hsv, COLOR_BGR2GRAY); // GRAY
-    //cvtColor(crop, hsv, COLOR_BGR2HSV);  // HSV
-    //cvtColor(crop, hsv, COLOR_BGR2YUV);  // YUV
-    hsv = crop;                            // RGB
-
-    //rbg : 1 et 2
-    //gray : meme qu'1 rgb
-    //hsv : h meme qu'1 rgb
-    //YUV : marche pas
-
-    // Separation canaux
-    split(hsv, hsv_chan);
-
-    //inSobel = hsv;         // GRAY
-    inSobel = hsv_chan[1];   // RGB
-    //inSobel = hsv_chan[0]; // HSV
-
-    //imshow("0", hsv_chan[0]);
-    //imshow("1", hsv_chan[1]);
-    //imshow("2", hsv_chan[2]);
+    // Separation canaux RGB
+    split(crop, crop_chan);
+    inSobel = crop_chan[1];
 
     if (DISPLAY == 1) {
       imshow("Sobel", inSobel);
