@@ -243,12 +243,14 @@ int main(int argc, char** argv) {
     // Calcul du temps d'execution
     start = getTickCount();
 
-    // Transformation en bird view
-    warpPerspective(raw, warp, h, Size(raw.cols, warp_factor * raw.rows), INTER_LINEAR, BORDER_REPLICATE);
+    // Affichage
     if (DISPLAY >= 1) {
       line(raw,  Point(pts_src.at(0)), Point(pts_src.at(1)), Scalar(255,0,0), THICK);
       line(raw,  Point(pts_src.at(2)), Point(pts_src.at(3)), Scalar(255,0,0), THICK);
     }
+
+    // Transformation en bird view
+    warpPerspective(raw, warp, h, Size(raw.cols, warp_factor * raw.rows), INTER_LINEAR, BORDER_REPLICATE);
 
     // Crop de la frame
     crop = warp(myROI);
