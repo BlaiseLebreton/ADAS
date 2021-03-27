@@ -27,6 +27,7 @@ using namespace std;
 void LineAlignement(int event, int x, int y, int flags, void* userdata);
 void RegionOfInterest(int event, int x, int y, int flags, void* userdata);
 void polyfit(const Mat& src_x, const Mat& src_y, Mat& dst, int order);
+void onTrackbar_changed(int, void*);
 
 #define THICK 2
 #define DEBUG 2
@@ -70,6 +71,11 @@ int posx;
 double kp = 2.0;
 int dir = 0;
 int pwr = 0;
+
+// Reglage camera
+VideoCapture cap;
+float B,C,S,G;
+int B2,C2,S2,G2;
 
 // images pour traitement
 Mat raw, warp, crop, inSobel, sobel, slid;
@@ -117,7 +123,6 @@ int main(int argc, char** argv) {
   double start,stop, dt;
 
   // Initialisation de la camera et lecture d'une frame
-  VideoCapture cap;
   if (argc == 1) {
     int apiID = CAP_ANY;
     for (int deviceID = 9; deviceID >= 0; deviceID--) {
@@ -130,6 +135,11 @@ int main(int argc, char** argv) {
     //Definition de la resolution
     cap.set(CAP_PROP_FRAME_WIDTH,  640);
     cap.set(CAP_PROP_FRAME_HEIGHT, 360);
+    cap.set(CAP_PROP_SATURATION, 1.0);
+    B = cap.get(CAP_PROP_BRIGHTNESS);
+    C = cap.get(CAP_PROP_CONTRAST );
+    S = cap.get(CAP_PROP_SATURATION);
+    G = cap.get(CAP_PROP_GAIN);
     cap >> raw;
   }
   else{
@@ -174,6 +184,16 @@ int main(int argc, char** argv) {
     createTrackbar("MinPix",  "Warp", &min_points,          1000);
     createTrackbar("Posy",    "Warp", &posy,            raw.rows);
     createTrackbar("Posx",    "Warp", &posx,            raw.cols);
+
+    B2=int(B*100);
+    C2=int(C*100);
+    S2=int(S*100);
+    G2=int(G*100);
+
+    createTrackbar("Brightness","Raw", &B2, 100, onTrackbar_changed);
+    createTrackbar("Contrast",  "Raw", &C2, 100, onTrackbar_changed);
+    createTrackbar("Saturation","Raw", &S2, 100, onTrackbar_changed);
+    createTrackbar("Gain",      "Raw", &G2, 100, onTrackbar_changed);
 
     // Callback
     setMouseCallback("Warp", RegionOfInterest, NULL);
@@ -604,4 +624,16 @@ void polyfit(const Mat& src_x, const Mat& src_y, Mat& dst, int order) {
   Mat temp3 = temp2 * X_t;
   Mat W = temp3 * src_y;
   W.copyTo(dst);
+}
+
+void onTrackbar_changed(int, void*) {
+  B = float(B2)/100;
+  C = float(C2)/100;
+  S = float(S2)/100;
+  G = float(G2)/100;
+
+  cap.set(CAP_PROP_BRIGHTNESS, B);
+  cap.set(CAP_PROP_CONTRAST,   C);
+  cap.set(CAP_PROP_SATURATION, S);
+  cap.set(CAP_PROP_GAIN,       G);
 }
