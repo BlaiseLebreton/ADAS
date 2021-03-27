@@ -227,10 +227,12 @@ int main(int argc, char** argv) {
 
     // Lecture frame
     cap >> raw;
-    if (argc == 1)
-    cap >> raw;
-    else
-    raw = imread(argv[1], IMREAD_COLOR);
+    if (argc == 1) {
+      cap >> raw;
+    }
+    else {
+      raw = imread(argv[1], IMREAD_COLOR);
+    }
 
     // Verification frame non vide
     if (raw.empty()) {
