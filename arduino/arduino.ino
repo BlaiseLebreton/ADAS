@@ -58,10 +58,11 @@ void loop() {
   recv.pwr = recv.pwr/(i-1);
   recv.dir = map(recv.dir/(i-1), 1000, 2000, -90, 90);
 
-
-
-  if (Serial.available()) { 
+  // Reception commande raspberry
+  if (Serial.available()) {
     incomingByte = "";
+
+    // Lecture de la commande
     while (Serial.available()) {
       delay(2);
       char c = (char)Serial.read();
@@ -89,33 +90,15 @@ void loop() {
     sdir[ci] = '\0';
     spwr[pi] = '\0';
 
-    // // Validation reception
-    // sprintf(test, "%s_%s", sdir, spwr);
-    // Serial.write(test);
-
     // Commande recue par la raspberry
     rasp.dir = max(-90,  min(-atoi(sdir), 90));
-    rasp.pwr = max(1500, min( atoi(spwr), 1800));
-//    
-//    for (i = 0; i < 1; i++) {
-//      Dir[i] = Dir[i+1];
-//    }
-//    Dir[i] = rasp.dir;
-//    for (i = 0; i < 2; i++) {
-//      rasp.dir += Dir[i];
-//    }
-//    rasp.dir = rasp.dir/(i-1);
+    rasp.pwr = max(1500, min( atoi(spwr), 1700));
 
-     rasp.dir = lastdir + max(-30, min((rasp.dir - lastdir), 30));
-     
-     lastdir = rasp.dir;
-    
+    // Limite la variation a 30° par iteration
+    rasp.dir = lastdir + max(-30, min((rasp.dir - lastdir), 30));
+    lastdir = rasp.dir;
+
   }
-
-
-
-
-
 
   // Application direction si pas d'outrepassement receiver
   if (abs(recv.dir) < 45) {
@@ -133,12 +116,5 @@ void loop() {
     // ServoPwr.writeMicroseconds(1500); // Emergency stop
     ServoPwr.writeMicroseconds(recv.pwr);
   }
-
-}
-
-// Commande raspberry
-void serialEvent() {
-
-
 
 }
