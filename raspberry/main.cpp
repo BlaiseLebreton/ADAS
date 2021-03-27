@@ -48,13 +48,12 @@ int drag = 0;
 int scale = 2; // facteur pour "boost" l'intensite
 int delta = 0;
 int ddepth = CV_16S;
-//int threshold_sobel = 50; // filtre (Maison)
-int threshold_sobel = 110; // filtre (Salle info)
+int threshold_sobel = 100; // filtre
 
 // Sliding windows
 int n_win = 10; // nombre de fenetres
-int win_width = 50; // largeur en px d'une fenetre
-int min_points = 0; // nombre minimum de points dans la fenetre
+int win_width = 60; // largeur en px d'une fenetre
+int min_points = 10; // nombre minimum de points dans la fenetre
 int degre = 2; // degre du polynome pour relier x = f(y)
 struct Window{
   // Coordonnes de la ligne
@@ -68,7 +67,8 @@ struct Window{
 // PID
 int posy;
 int posx;
-double kp = 2.0;
+double kp  = 0.3;    // 2.0
+double kp2 = 200.0;  // 100.0 // Pour speed = 1670
 int dir = 0;
 int pwr = 0;
 
@@ -267,8 +267,7 @@ int main(int argc, char** argv) {
     convertScaleAbs(grad_x, sobel);
 
     // Mise a l'echelle de la frame
-    minMaxLoc(sobel, &vmin, &vmax);
-    sobel = 255 * sobel / vmax;
+    normalize(sobel, sobel, 0, 255, NORM_MINMAX, CV_8UC1);
 
     // Seuillage a zero
     threshold(sobel, sobel, threshold_sobel, 255, 3);
@@ -470,8 +469,8 @@ int main(int argc, char** argv) {
     }
 
     // Calcul de la commande
-    dir = kp*(xligne - posx);
-    pwr = 1670;
+    dir = kp*(xligne - posx) - kp2*(1 + dxligne);
+    pwr = 1700;
 
     // Bornage
     dir = min(max(-90,  dir),   90);
