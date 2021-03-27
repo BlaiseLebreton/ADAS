@@ -104,7 +104,7 @@ int Lidar_Initialize(int DISPLAY) {
     ret = laser.turnOn();
   }
 
-  if (DISPLAY) {
+  if (DISPLAY == 1) {
     // Window
     namedWindow("LIDAR Datas",  WINDOW_NORMAL);
     resizeWindow("LIDAR Datas", WIDTH, WIDTH);
@@ -173,12 +173,12 @@ float Lidar_CheckObstacles(int* cmd, int* pwr, int DISPLAY) {
       sy = scan.points[i].range*SCALE*sin(scan.points[i].angle+M_PI/2.0) + WIDTH/2;
 
       // Green by default
-      if (DISPLAY)
+      if (DISPLAY == 1)
         data.at<Vec3b>(sy, sx) = Vec3b(0,255,0);
 
       if (type == 1) {
         if (sx >= lx && sx <= rx) {
-          if (DISPLAY)
+          if (DISPLAY == 1)
             data.at<Vec3b>(round(sy), round(sx)) = Vec3b(0,0,255);
           IsObstacle = true;
         }
@@ -188,7 +188,7 @@ float Lidar_CheckObstacles(int* cmd, int* pwr, int DISPLAY) {
 
         // Red if in trajectory
         if (Rs >= R_i && Rs <= R_e) {
-          if (DISPLAY)
+          if (DISPLAY == 1)
             data.at<Vec3b>(round(sy), round(sx)) = Vec3b(0,0,255);
           IsObstacle = true;
         }
@@ -196,7 +196,7 @@ float Lidar_CheckObstacles(int* cmd, int* pwr, int DISPLAY) {
 
       // Green if behind
       if (sy >= WIDTH/2) {
-        if (DISPLAY)
+        if (DISPLAY == 1)
           data.at<Vec3b>(round(sy), round(sx)) = Vec3b(0,255,0);
         IsObstacle = false;
       }
@@ -215,14 +215,14 @@ float Lidar_CheckObstacles(int* cmd, int* pwr, int DISPLAY) {
     if (Ro_m <= 0.4){
       *pwr = 1500;
     }
-    if (DISPLAY)
+    if (DISPLAY == 1)
       line(data, Point(WIDTH/2, WIDTH/2), P_m, Scalar(255,255,255), 1);
   }
   else {
     fprintf(stderr, "Failed to get Lidar Data\n");
     fflush(stderr);
   }
-  if (DISPLAY) {
+  if (DISPLAY == 1) {
     if (type == 1) {
       line(data, Point(WIDTH/2, WIDTH), Point(WIDTH/2, 0), Scalar(0,     0, 255), 1, LINE_8); // Red
       line(data, Point(lx ,     WIDTH), Point(lx,      0), Scalar(0,   255,   0), 1, LINE_8); // Green

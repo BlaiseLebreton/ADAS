@@ -18,7 +18,7 @@
 #include "lidar.h"
 #endif
 
-#define DISPLAY 1
+#define DISPLAY 1 // 1 : Images // 2 : Video
 #define NLIGNE 1
 
 using namespace cv;
@@ -204,6 +204,21 @@ int main(int argc, char** argv) {
     resizeWindow("Warp",  640, warp_factor * 360);
   }
 
+  // Creation video
+  VideoWriter oVideoWriter_Raw ("./raw.avi",  VideoWriter::fourcc('M', 'J', 'P', 'G'), 15, Size(raw.cols, raw.rows), true);
+  VideoWriter oVideoWriter_Warp("./warp.avi", VideoWriter::fourcc('M', 'J', 'P', 'G'), 15, Size(raw.cols, warp_factor * raw.rows), true);
+  if (DISPLAY == 2) {
+    //If the VideoWriter object is not initialized successfully, exit the program
+    if (oVideoWriter_Raw.isOpened() == false) {
+      cout << "Cannot save the video to a file" << endl;
+      return -1;
+    }
+    if (oVideoWriter_Warp.isOpened() == false) {
+      cout << "Cannot save the video to a file" << endl;
+      return -1;
+    }
+  }
+
   // Debut du traitement temps reel
   cout << "Debut de capture" << endl;
   for(;;)	{
@@ -228,7 +243,7 @@ int main(int argc, char** argv) {
 
     // Transformation en bird view
     warpPerspective(raw, warp, h, Size(raw.cols, warp_factor * raw.rows), INTER_LINEAR, BORDER_REPLICATE);
-    if (DISPLAY == 1) {
+    if (DISPLAY >= 1) {
       line(raw,  Point(pts_src.at(0)), Point(pts_src.at(1)), Scalar(255,0,0), THICK);
       line(raw,  Point(pts_src.at(2)), Point(pts_src.at(3)), Scalar(255,0,0), THICK);
     }
@@ -246,9 +261,6 @@ int main(int argc, char** argv) {
     split(crop, crop_chan);
     inSobel = crop_chan[1];
 
-    if (DISPLAY == 1) {
-      imshow("Sobel", inSobel);
-    }
 
     // Filtre de Sobel
     Sobel(inSobel, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
@@ -339,14 +351,14 @@ int main(int argc, char** argv) {
     }
 
     // Affichage dans l'image en bird view
-    if (DISPLAY == 1) {
+    if (DISPLAY >= 1) {
       cvtColor(sobel, sobel, COLOR_GRAY2BGR);
       sobel.copyTo(warp(Rect(myROI.x, myROI.y, sobel.cols, sobel.rows)));
     }
 
     // Affichage puis desactivation de la premiere fenetre (car position erronee)
     for (s = 0; s < NLIGNE; s++) {
-      if (DISPLAY == 1) {
+      if (DISPLAY >= 1) {
         MyRect = slid_win[s][0].rect;
         MyRect.x += myROI.x;
         MyRect.y += myROI.y;
@@ -370,7 +382,7 @@ int main(int argc, char** argv) {
 
       for (s = 0; s < NLIGNE; s++) {
 
-        if (DISPLAY == 1) {
+        if (DISPLAY >= 1) {
           MyRect = slid_win[s][nw].rect;
           MyRect.x += myROI.x;
           MyRect.y += myROI.y;
@@ -410,7 +422,7 @@ int main(int argc, char** argv) {
       polyfit(src_x, src_y, coef, degre);
 
       // Affichage de la ligne resultante
-      if (DISPLAY == 1) {
+      if (DISPLAY >= 1) {
         vector<Point2f> curvePoints;
         int x = 0;
         for (int y = warp_factor * warp.rows; y > 0; y--) {
@@ -441,7 +453,7 @@ int main(int argc, char** argv) {
 
     // Affichage de la ligne
     int yligne = warp.rows - posy;
-    if (DISPLAY == 1) {
+    if (DISPLAY >= 1) {
       line(warp, Point(posx, warp.rows), Point(posx, yligne), Scalar(255,0,0), THICK);
     }
 
@@ -453,7 +465,7 @@ int main(int argc, char** argv) {
       dxligne += coef.at<float>(n, 0)*pow(yligne, n-1)*(n-1);
     }
 
-    if (DISPLAY == 1) {
+    if (DISPLAY >= 1) {
       line(warp, Point(posx, warp.rows - posy), Point(xligne, yligne), Scalar(0,0,255), THICK);
     }
 
@@ -477,7 +489,7 @@ int main(int argc, char** argv) {
     }
 
     /* WARPBACK */
-    if (DISPLAY == 1) {
+    if (DISPLAY >= 1) {
       vector<Point2f> center_raw(n_win);
       perspectiveTransform(center, center_raw, hinv);
       for (int n = 0; n < nc; n++) {
@@ -488,7 +500,7 @@ int main(int argc, char** argv) {
 
     /* AFFICHAGE */
 
-    if (DISPLAY == 1) {
+    if (DISPLAY >= 1) {
       // Ligne d'erreur
       line(raw, Point(0, pts_src.at(0).y), Point(raw.cols, pts_src.at(0).y), Scalar(255,0,0), THICK);
       line(raw, Point(0, pts_src.at(1).y), Point(raw.cols, pts_src.at(1).y), Scalar(255,0,0), THICK);
@@ -503,8 +515,16 @@ int main(int argc, char** argv) {
       putText(raw, to_string((int)(1/dt)) + "Hz", Point(10,15), FONT_HERSHEY_DUPLEX, 0.5*THICK, Scalar(255,255,255), 2);
 
       // Frames et creation callback/trackbar
-      imshow("Raw",   raw);
-      imshow("Warp",  warp);
+      if (DISPLAY == 1) {
+        imshow("Raw",   raw);
+        imshow("Warp",  warp);
+      }
+
+      //write the video frame to the file
+      if (DISPLAY == 2) {
+        oVideoWriter_Raw.write(raw);
+        oVideoWriter_Warp.write(warp);
+      }
 
       if (waitKey(1) == 27) {
         break; // stop capturing by pressing ESC
@@ -513,10 +533,11 @@ int main(int argc, char** argv) {
     }
 
 
+
     stop = getTickCount();
     dt = ((stop - start)/ getTickFrequency());
 
-    if (DISPLAY == 0) {
+    if (DISPLAY != 1) {
       system("clear");
 
       printf("Frequency        : %d Hz\n", (int)(1/dt));
@@ -528,13 +549,19 @@ int main(int argc, char** argv) {
       printf("Closest obstacle : %.2f cm\n", Ro_m*100);
 
     }
-    printf("dxligne : %f\n", 1+dxligne);
 
   }
 
   // Exctinction LIDAR
   if (LIDAR == 1) {
     Lidar_Shutdown();
+  }
+
+
+  //Flush and close the video file
+  if (DISPLAY == 2) {
+    oVideoWriter_Raw.release();
+    oVideoWriter_Warp.release();
   }
 
   cout << "Fin de capture" << endl;
